@@ -12,8 +12,8 @@ case class ProduceResponse(
 
 case class ProduceResult(
   topicPartition: TopicPartition,
-  error: Error, // int16
-  offset: Long  // int64
+  error: KafkaError, // int16
+  offset: Long       // int64
 )
 
 // FetchResponse
@@ -25,7 +25,7 @@ case class FetchResponse(
 
 case class FetchResult(
   topicPartition: TopicPartition,
-  error: Error,                    // int16
+  error: KafkaError,               // int16
   highwaterMarkOffset: Long,       // int64
   messages: Seq[MessageWithOffset] // MessageSetSize MessageSet
 )
@@ -38,7 +38,7 @@ case class OffsetResponse(
 
 case class OffsetResult(
   topicPartition: TopicPartition,
-  error: Error,      // int16
+  error: KafkaError, // int16
   offsets: Seq[Long] // [int64]
 )
 
@@ -56,13 +56,13 @@ case class Broker(
 )
 
 case class TopicMetadata(
-  error: Error,                      // int16
+  error: KafkaError,                 // int16
   name: String,                      // string
   partitions: Seq[PartitionMetadata] // [PartitionMetadata]
 )
 
 case class PartitionMetadata(
-  error: Error,           // int16
+  error: KafkaError,      // int16
   id: Int,                // int32
   leader: Option[Broker], // int32
   replicas: Seq[Broker],  // [int32]
@@ -78,7 +78,7 @@ case class OffsetCommitResponse(
 
 case class OffsetCommitResult(
   topicPartition: TopicPartition,
-  error: Error // int16
+  error: KafkaError // int16
 )
 
 // OffsetFetchResponse
@@ -90,7 +90,7 @@ case class OffsetFetchResponse(
 
 case class OffsetFetchResult(
   topicPartition: TopicPartition,
-  offset: Long,     // int64
-  metadata: String, // string
-  error: Error      // int16
+  offset: Long,      // int64
+  metadata: String,  // string
+  error: KafkaError  // int16
 )

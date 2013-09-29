@@ -39,7 +39,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
       // [Partition ErrorCode Offset]
       buf.decodeArray {
         val partition = buf.decodeInt32()
-        val error: Error = buf.decodeInt16()
+        val error: KafkaError = buf.decodeInt16()
         val offset = buf.decodeInt64()
 
         ProduceResult(TopicPartition(topicName, partition), error, offset)
@@ -61,7 +61,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
       // [Partition ErrorCode HighwaterMarkOffset MessageSetSize MessageSet]
       buf.decodeArray {
         val partition = buf.decodeInt32()
-        val error: Error = buf.decodeInt16()
+        val error: KafkaError = buf.decodeInt16()
         val highwaterMarkOffset = buf.decodeInt64()
         val messages = buf.decodeMessageSet()
 
@@ -85,7 +85,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
       // [Partition ErrorCode [Offset]]
       buf.decodeArray {
         val partition = buf.decodeInt32()
-        val error: Error = buf.decodeInt16()
+        val error: KafkaError = buf.decodeInt16()
         val offsets = buf.decodeArray(buf.decodeInt64())
 
         OffsetResult(TopicPartition(topicName, partition), error, offsets)
@@ -151,7 +151,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
       // [Partition ErrorCode [Offset]]
       buf.decodeArray {
         val partition = buf.decodeInt32()
-        val error: Error = buf.decodeInt16()
+        val error: KafkaError = buf.decodeInt16()
 
         OffsetCommitResult(TopicPartition(topicName, partition), error)
       }
@@ -177,7 +177,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
         val partition = buf.decodeInt32()
         val offset = buf.decodeInt64()
         val metadata = buf.decodeString()
-        val error: Error = buf.decodeInt16()
+        val error: KafkaError = buf.decodeInt16()
 
         OffsetFetchResult(TopicPartition(topicName, partition), offset, metadata, error)
       }

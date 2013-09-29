@@ -42,7 +42,7 @@ private[protocol] object Spec {
   // TODO: Use implicit value class in Scala 2.10
   //import scala.language.implicitConversions
 
-  implicit def asError(code: Int16): Error = Error(code)
+  implicit def asKafkaError(code: Int16): KafkaError = KafkaError(code)
 
   implicit def asKafkaChannelBuffer(buf: ChannelBuffer) = new KafkaChannelBuffer(buf)
 

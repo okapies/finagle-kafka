@@ -2,41 +2,41 @@ package okapies.finagle.kafka.protocol
 
 import kafka.common.ErrorMapping
 
-abstract class Error(val code: Short /* int16 */) {
+abstract class KafkaError(val code: Short /* int16 */) {
 
   def throwException() = ErrorMapping.maybeThrowException(code)
 
 }
 
-case object Unknown extends Error(ErrorMapping.UnknownCode)
+case object Unknown extends KafkaError(ErrorMapping.UnknownCode)
 
-case object NoError extends Error(ErrorMapping.NoError)
+case object NoError extends KafkaError(ErrorMapping.NoError)
 
-case object OffsetOutOfRange extends Error(ErrorMapping.OffsetOutOfRangeCode)
+case object OffsetOutOfRange extends KafkaError(ErrorMapping.OffsetOutOfRangeCode)
 
-case object InvalidMessage extends Error(ErrorMapping.InvalidMessageCode)
+case object InvalidMessage extends KafkaError(ErrorMapping.InvalidMessageCode)
 
-case object UnknownTopicOrPartition extends Error(ErrorMapping.UnknownTopicOrPartitionCode)
+case object UnknownTopicOrPartition extends KafkaError(ErrorMapping.UnknownTopicOrPartitionCode)
 
-case object InvalidFetchSize extends Error(ErrorMapping.InvalidFetchSizeCode)
+case object InvalidFetchSize extends KafkaError(ErrorMapping.InvalidFetchSizeCode)
 
-case object LeaderNotAvailable extends Error(ErrorMapping.LeaderNotAvailableCode)
+case object LeaderNotAvailable extends KafkaError(ErrorMapping.LeaderNotAvailableCode)
 
-case object NotLeaderForPartition extends Error(ErrorMapping.NotLeaderForPartitionCode)
+case object NotLeaderForPartition extends KafkaError(ErrorMapping.NotLeaderForPartitionCode)
 
-case object RequestTimedOut extends Error(ErrorMapping.RequestTimedOutCode)
+case object RequestTimedOut extends KafkaError(ErrorMapping.RequestTimedOutCode)
 
-case object BrokerNotAvailable extends Error(ErrorMapping.BrokerNotAvailableCode)
+case object BrokerNotAvailable extends KafkaError(ErrorMapping.BrokerNotAvailableCode)
 
-case object ReplicaNotAvailable extends Error(ErrorMapping.ReplicaNotAvailableCode)
+case object ReplicaNotAvailable extends KafkaError(ErrorMapping.ReplicaNotAvailableCode)
 
-case object MessageSizeTooLarge extends Error(ErrorMapping.MessageSizeTooLargeCode)
+case object MessageSizeTooLarge extends KafkaError(ErrorMapping.MessageSizeTooLargeCode)
 
-case object StaleControllerEpoch extends Error(ErrorMapping.StaleControllerEpochCode)
+case object StaleControllerEpoch extends KafkaError(ErrorMapping.StaleControllerEpochCode)
 
 //case object OffsetMetadataTooLarge extends KafkaError(ErrorMapping.OffsetMetadataTooLargeCode)
 
-object Error {
+object KafkaError {
 
   def apply(code: Short) = toError(code)
 
