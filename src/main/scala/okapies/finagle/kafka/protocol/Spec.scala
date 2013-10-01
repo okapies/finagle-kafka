@@ -30,6 +30,7 @@ private[protocol] object Spec {
   val ApiKeyOffsetFetch  = 7: Int16
 
   // length of fields
+  val CorrelationIdLength = 4
   val ArraySizeLength = 4
 
   // Encoding
@@ -200,21 +201,21 @@ private[protocol] object Spec {
       val n = buf.decodeInt16()    // N => int16
       val bytes = buf.readBytes(n) // content
 
-      val array =
+      val (array, offset) =
         if (bytes.hasArray) {
-          bytes.array
+          (bytes.array, bytes.arrayOffset)
         } else {
           val _array = new Array[Byte](n)
           bytes.readBytes(_array)
-          _array
+          (_array, 0)
         }
 
-      new String(array, bytes.arrayOffset, n, DefaultCharset)
+      new String(array, offset, n, DefaultCharset)
     }
 
     @inline
     def decodeArray[A](f: => A): Seq[A] = {
-      val n: Int32 = buf.readInt() // N => int32
+      val n: Int32 = buf.decodeInt32() // N => int32
       (0 until n).map(_ => f)
     }
 
