@@ -14,14 +14,14 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
       val correlationId = buf.decodeInt32()
       selector(correlationId).map { apiKey =>
         apiKey match {
-          case ApiKeyProduce => decodeProduceResponse(buf, correlationId)
-          case ApiKeyFetch => decodeFetchResponse(buf, correlationId)
-          case ApiKeyOffset => decodeOffsetResponse(buf, correlationId)
-          case ApiKeyMetadata => decodeMetadataResponse(buf, correlationId)
+          case ApiKeyProduce => decodeProduceResponse(correlationId, buf)
+          case ApiKeyFetch => decodeFetchResponse(correlationId, buf)
+          case ApiKeyOffset => decodeOffsetResponse(correlationId, buf)
+          case ApiKeyMetadata => decodeMetadataResponse(correlationId, buf)
           case ApiKeyLeaderAndIsr => msg
           case ApiKeyStopReplica => msg
-          case ApiKeyOffsetCommit => decodeOffsetCommitResponse(buf, correlationId)
-          case ApiKeyOffsetFetch => decodeOffsetFetchResponse(buf, correlationId)
+          case ApiKeyOffsetCommit => decodeOffsetCommitResponse(correlationId, buf)
+          case ApiKeyOffsetFetch => decodeOffsetFetchResponse(correlationId, buf)
         }
       }.getOrElse(msg)
     case _ => msg // fall through
@@ -32,7 +32,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
    * ProduceResponse => [TopicName [Partition ErrorCode Offset]]
    * }}}
    */
-  private def decodeProduceResponse(buf: ChannelBuffer, correlationId: Int) = {
+  private def decodeProduceResponse(correlationId: Int, buf: ChannelBuffer) = {
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -54,7 +54,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
    * FetchResponse => [TopicName [Partition ErrorCode HighwaterMarkOffset MessageSetSize MessageSet]]
    * }}}
    */
-  private def decodeFetchResponse(buf: ChannelBuffer, correlationId: Int) = {
+  private def decodeFetchResponse(correlationId: Int, buf: ChannelBuffer) = {
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -78,7 +78,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
    *   PartitionOffsets => Partition ErrorCode [Offset]
    * }}}
    */
-  private def decodeOffsetResponse(buf: ChannelBuffer, correlationId: Int) = {
+  private def decodeOffsetResponse(correlationId: Int, buf: ChannelBuffer) = {
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -103,7 +103,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
    *     PartitionMetadata => PartitionErrorCode PartitionId Leader Replicas Isr
    * }}}
    */
-  private def decodeMetadataResponse(buf: ChannelBuffer, correlationId: Int) = {
+  private def decodeMetadataResponse(correlationId: Int, buf: ChannelBuffer) = {
     // [Broker]
     val brokers = buf.decodeArray {
       val nodeId = buf.decodeInt32()
@@ -143,7 +143,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
    * OffsetCommitResponse => ClientId [TopicName [Partition ErrorCode]]]
    * }}}
    */
-  private def decodeOffsetCommitResponse(buf: ChannelBuffer, correlationId: Int) = {
+  private def decodeOffsetCommitResponse(correlationId: Int, buf: ChannelBuffer) = {
     val clientId = buf.decodeString()
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
@@ -167,7 +167,7 @@ class ResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
    * OffsetFetchResponse => ClientId [TopicName [Partition Offset Metadata ErrorCode]]
    * }}}
    */
-  private def decodeOffsetFetchResponse(buf: ChannelBuffer, correlationId: Int) = {
+  private def decodeOffsetFetchResponse(correlationId: Int, buf: ChannelBuffer) = {
     val clientId = buf.decodeString()
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
