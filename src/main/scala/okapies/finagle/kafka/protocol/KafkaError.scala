@@ -58,3 +58,6 @@ object KafkaError {
   )
 
 }
+
+class KafkaCodecException(message: String = null, cause: Throwable = null)
+  extends RuntimeException(message: String, cause: Throwable)

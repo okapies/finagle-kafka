@@ -19,5 +19,9 @@ libraryDependencies ++= List(
     exclude("com.sun.jdmk", "jmxtools")
     exclude("log4j", "log4j")
     exclude("jline", "jline"),
-  "org.scalatest" % "scalatest_2.9.2" % "1.9.2" % "test"
+  "org.scalatest" % "scalatest_2.9.2" % "1.9.2" % "test",
+  "log4j" % "log4j" % "1.2.15" % "test"
+    exclude("com.sun.jmx", "jmxri")
+    exclude("com.sun.jdmk", "jmxtools")
+    exclude("javax.jms", "jms")
 )
