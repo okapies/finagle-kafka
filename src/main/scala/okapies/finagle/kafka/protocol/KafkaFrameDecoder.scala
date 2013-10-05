@@ -26,7 +26,7 @@ case class MessageFrame(
   frame: ChannelBuffer) extends KafkaFrame
 
 class KafkaFrameDecoder(
-  requestToApiKey: (Int32 => Option[Int16]),
+  apiKeyByReq: (Int32 => Option[Int16]),
   maxFrameLength: Int
 ) extends ReplayingDecoder[KafkaFrameDecoderState](READ_HEADER) {
 
@@ -34,9 +34,9 @@ class KafkaFrameDecoder(
 
   private[this] var correlationId: Int32 = _
 
-  private[this] var readSize: Int32 = _
-
   /* context of fetched messages */
+
+  private[this] var readSize: Int32 = _
 
   private[this] var topicCount: Int32 = _
 
@@ -68,24 +68,21 @@ class KafkaFrameDecoder(
       size = buffer.decodeInt32()          // int32
       correlationId = buffer.decodeInt32() // int32
 
-      readSize = CorrelationIdLength
-      checkpoint(READ_RESPONSE)
+      apiKeyByReq(correlationId) match {
+        case Some(ApiKeyFetch) =>
+          readSize = CorrelationIdLength
+          checkpoint(READ_TOPIC_COUNT)
 
-      decode(ctx, channel, buffer, READ_RESPONSE)
-    case READ_RESPONSE => requestToApiKey(correlationId) match {
-      case Some(ApiKeyFetch) =>
-        checkpoint(READ_TOPIC_COUNT)
+          ResponseFrame(ApiKeyFetch, correlationId, ChannelBuffers.EMPTY_BUFFER)
+        case Some(apiKey) =>
+          // read bytes without Size and CorrelationId
+          val frame = buffer.readBytes(size - CorrelationIdLength)
+          checkpoint(READ_HEADER) // back to init state
 
-        ResponseFrame(ApiKeyFetch, correlationId, ChannelBuffers.EMPTY_BUFFER)
-      case Some(apiKey) =>
-        // read bytes without Size and CorrelationId
-        val frame = buffer.readBytes(size - readSize)
-        checkpoint(READ_HEADER) // back to init state
-
-        ResponseFrame(apiKey, correlationId, frame)
-      case _ =>
-        throw new KafkaCodecException("Unrecognized type of response correlated to the request.")
-    }
+          ResponseFrame(apiKey, correlationId, frame)
+        case _ =>
+          throw new KafkaCodecException("Unrecognized type of response correlated to the request.")
+      }
 
     // [TopicName [Partition ErrorCode HighwaterMarkOffset MessageSetSize MessageSet]]
     //   MessageSet => [Offset MessageSize Message]
