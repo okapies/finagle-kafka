@@ -25,10 +25,12 @@ case class MessageFrame(
   offset: Int64,
   frame: ChannelBuffer) extends KafkaFrame
 
+case object NilMessageFrame extends KafkaFrame
+
 class KafkaFrameDecoder(
   apiKeyByReq: (Int32 => Option[Int16]),
   maxFrameLength: Int
-) extends ReplayingDecoder[KafkaFrameDecoderState](READ_HEADER) {
+) extends ReplayingDecoder[KafkaFrameDecoderState](READ_HEADER, true /* unfold */) {
 
   private[this] var size: Int32 = _
 
@@ -108,7 +110,8 @@ class KafkaFrameDecoder(
           decode(ctx, channel, buffer, READ_PARTITION_COUNT)
         case n if n == 0 =>
           setState(READ_HEADER) // back to init state
-          decode(ctx, channel, buffer, READ_HEADER)
+
+          NilMessageFrame // indicates end of stream
         case _ =>
           throw new KafkaCodecException(
             "The response has illegal number of topics: expected=%d, actual=%d"
@@ -130,9 +133,9 @@ class KafkaFrameDecoder(
           highwaterMarkOffset = buffer.decodeInt64() // int64
 
           readSize +=
-            4 /* Partition */
-          + 2 /* ErrorCode */
-          + 8 /* HighwaterMarkOffset */
+            4 + /* Partition */
+            2 + /* ErrorCode */
+            8   /* HighwaterMarkOffset */
           readPartitionCount += 1
           checkpoint(READ_MESSAGE_SET)
 
@@ -164,23 +167,30 @@ class KafkaFrameDecoder(
           readSize += length
           readMessageSetSize += length
 
+          val messageFrame =
+            MessageFrame(
+              correlationId,
+              topicName, partition, errorCode, highwaterMarkOffset,
+              offset, frame)
+
           size - readSize match {
-            case n if n > 0 => checkpoint() // continue
-            case n if n == 0 => checkpoint(READ_HEADER) // back to init state
+            case n if n > 0 =>
+              checkpoint() // continue
+
+              messageFrame
+            case n if n == 0 =>
+              checkpoint(READ_HEADER) // back to init state
+
+              // unfold by ReplayingDecoder
+              Array[KafkaFrame](
+                messageFrame,
+                NilMessageFrame // indicates end of stream
+              )
             case n if n < 0 =>
               throw new KafkaCodecException(
                 "The response has illegal size: expected=%d, actual=%d"
                   .format(size, readSize))
           }
-
-          MessageFrame(
-            correlationId,
-            topicName,
-            partition,
-            errorCode,
-            highwaterMarkOffset,
-            offset,
-            frame)
         case n if n == 0 =>
           setState(READ_PARTITION)
           decode(ctx, channel, buffer, READ_PARTITION)

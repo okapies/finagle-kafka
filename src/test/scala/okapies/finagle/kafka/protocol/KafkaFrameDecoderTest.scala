@@ -25,6 +25,7 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
   import kafka.common.TopicAndPartition
   import kafka.message.{ByteBufferMessageSet, Message => KafkaMessage}
   import Spec._
+  import util.Helper._
 
   behavior of "A KafkaFrameDecoder"
 
@@ -78,7 +79,7 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
       assert(errorCode2 === 2)
       assert(highwaterMarkOffset2 === 2 + i)
       assert(offset2 === 0)
-      assert(new String(getMessageValue(frame2), "UTF-8") === "hello")
+      assert(new String(getMessageValue(frame2), utf8) === "hello")
 
       // 2nd message in the response
       val MessageFrame(
@@ -92,7 +93,7 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
       assert(errorCode3 === 2)
       assert(highwaterMarkOffset3 === 2 + i)
       assert(offset3 === 1)
-      assert(new String(getMessageValue(frame3), "UTF-8") === "world")
+      assert(new String(getMessageValue(frame3), utf8) === "world")
 
       // 3rd message in the response
       val MessageFrame(
@@ -106,7 +107,7 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
       assert(errorCode4 === 1)
       assert(highwaterMarkOffset4 === 1 + i)
       assert(offset4 === 0)
-      assert(new String(getMessageValue(frame4), "UTF-8") === "welcome")
+      assert(new String(getMessageValue(frame4), utf8) === "welcome")
 
       // 4th message in the response
       val MessageFrame(
@@ -120,7 +121,10 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
       assert(errorCode5 === 1)
       assert(highwaterMarkOffset5 === 1 + i)
       assert(offset5 === 0)
-      assert(new String(getMessageValue(frame5), "UTF-8") === "welcome")
+      assert(new String(getMessageValue(frame5), utf8) === "welcome")
+
+      val msg6 = embedder.poll()
+      assert(msg6 === NilMessageFrame)
     }
   }
 
@@ -152,11 +156,11 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
 
   private[this] def createFetchResponseAsChannelBuffer(i: Int) = {
     val data1 = KafkaFetchResponsePartitionData(1, 1 + i, new ByteBufferMessageSet(
-      new KafkaMessage("welcome".getBytes("UTF-8"))
+      new KafkaMessage("welcome".getBytes(utf8))
     ))
     val data2 = KafkaFetchResponsePartitionData(2, 2 + i, new ByteBufferMessageSet(
-      new KafkaMessage("hello".getBytes("UTF-8")),
-      new KafkaMessage("world".getBytes("UTF-8"))
+      new KafkaMessage("hello".getBytes(utf8)),
+      new KafkaMessage("world".getBytes(utf8))
     ))
     val res = KafkaFetchResponse(
       correlationId = i,
