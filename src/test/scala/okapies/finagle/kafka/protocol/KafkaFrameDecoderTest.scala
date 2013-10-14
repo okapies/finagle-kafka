@@ -151,16 +151,13 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
   }
 
   private[this] def createFetchResponseAsChannelBuffer(i: Int) = {
-    val msgs1 = Array[KafkaMessage](
+    val data1 = KafkaFetchResponsePartitionData(1, 1 + i, new ByteBufferMessageSet(
       new KafkaMessage("welcome".getBytes("UTF-8"))
-    )
-    val msgs2 = Array[KafkaMessage](
+    ))
+    val data2 = KafkaFetchResponsePartitionData(2, 2 + i, new ByteBufferMessageSet(
       new KafkaMessage("hello".getBytes("UTF-8")),
       new KafkaMessage("world".getBytes("UTF-8"))
-    )
-
-    val data1 = KafkaFetchResponsePartitionData(1, 1 + i, new ByteBufferMessageSet(msgs1:_*))
-    val data2 = KafkaFetchResponsePartitionData(2, 2 + i, new ByteBufferMessageSet(msgs2:_*))
+    ))
     val res = KafkaFetchResponse(
       correlationId = i,
       data = ListMap(TopicAndPartition("test-topic1", 1 + i) -> data1) +
