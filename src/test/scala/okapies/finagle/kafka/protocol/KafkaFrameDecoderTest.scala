@@ -67,61 +67,54 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
       assert(correlationId1 === i)
       assert(frame1 === ChannelBuffers.EMPTY_BUFFER)
 
+      // 1st partition in the response
+      val PartitionFrame(topicPartition1, errorCode1, highwaterMarkOffset1) =
+        embedder.poll().asInstanceOf[PartitionFrame]
+      assert(topicPartition1 === TopicPartition("test-topic2", 3 + i))
+      assert(errorCode1 === 2)
+      assert(highwaterMarkOffset1 === 2 + i)
+
       // 1st message in the response
-      val MessageFrame(
-          correlationId2,
-          topicName2, partition2,
-          errorCode2, highwaterMarkOffset2, offset2, frame2) =
+      val MessageFrame(topicPartition11, offset11, frame11) =
         embedder.poll().asInstanceOf[MessageFrame]
-      assert(correlationId2 === i)
-      assert(topicName2 === "test-topic2")
-      assert(partition2 === 3 + i)
-      assert(errorCode2 === 2)
-      assert(highwaterMarkOffset2 === 2 + i)
-      assert(offset2 === 0)
-      assert(new String(getMessageValue(frame2), utf8) === "hello")
+      assert(topicPartition11 === TopicPartition("test-topic2", 3 + i))
+      assert(offset11 === 0)
+      assert(new String(getMessageValue(frame11), utf8) === "hello")
 
       // 2nd message in the response
-      val MessageFrame(
-          correlationId3,
-          topicName3, partition3,
-          errorCode3, highwaterMarkOffset3, offset3, frame3) =
+      val MessageFrame(topicPartition12, offset12, frame12) =
         embedder.poll().asInstanceOf[MessageFrame]
-      assert(correlationId3 === i)
-      assert(topicName3 === "test-topic2")
-      assert(partition3 === 3 + i)
-      assert(errorCode3 === 2)
-      assert(highwaterMarkOffset3 === 2 + i)
-      assert(offset3 === 1)
-      assert(new String(getMessageValue(frame3), utf8) === "world")
+      assert(topicPartition12 === TopicPartition("test-topic2", 3 + i))
+      assert(offset12 === 1)
+      assert(new String(getMessageValue(frame12), utf8) === "world")
+
+      // 2nd partition in the response
+      val PartitionFrame(topicPartition2, errorCode2, highwaterMarkOffset2) =
+        embedder.poll().asInstanceOf[PartitionFrame]
+      assert(topicPartition2 === TopicPartition("test-topic1", 1 + i))
+      assert(errorCode2 === 1)
+      assert(highwaterMarkOffset2 === 1 + i)
 
       // 3rd message in the response
-      val MessageFrame(
-          correlationId4,
-          topicName4, partition4,
-          errorCode4, highwaterMarkOffset4, offset4, frame4) =
+      val MessageFrame(topicPartition21, offset21, frame21) =
         embedder.poll().asInstanceOf[MessageFrame]
-      assert(correlationId4 === i)
-      assert(topicName4 === "test-topic1")
-      assert(partition4 === 1 + i)
-      assert(errorCode4 === 1)
-      assert(highwaterMarkOffset4 === 1 + i)
-      assert(offset4 === 0)
-      assert(new String(getMessageValue(frame4), utf8) === "welcome")
+      assert(topicPartition21 === TopicPartition("test-topic1", 1 + i))
+      assert(offset21 === 0)
+      assert(new String(getMessageValue(frame21), utf8) === "welcome")
+
+      // 3rd partition in the response
+      val PartitionFrame(topicPartition3, errorCode3, highwaterMarkOffset3) =
+        embedder.poll().asInstanceOf[PartitionFrame]
+      assert(topicPartition3 === TopicPartition("test-topic1", 2 + i))
+      assert(errorCode3 === 1)
+      assert(highwaterMarkOffset3 === 1 + i)
 
       // 4th message in the response
-      val MessageFrame(
-          correlationId5,
-          topicName5, partition5,
-          errorCode5, highwaterMarkOffset5, offset5, frame5) =
+      val MessageFrame(topicPartition31, offset31, frame31) =
         embedder.poll().asInstanceOf[MessageFrame]
-      assert(correlationId5 === i)
-      assert(topicName5 === "test-topic1")
-      assert(partition5 === 2 + i)
-      assert(errorCode5 === 1)
-      assert(highwaterMarkOffset5 === 1 + i)
-      assert(offset5 === 0)
-      assert(new String(getMessageValue(frame5), utf8) === "welcome")
+      assert(topicPartition31 === TopicPartition("test-topic1", 2 + i))
+      assert(offset31 === 0)
+      assert(new String(getMessageValue(frame31), utf8) === "welcome")
 
       val msg6 = embedder.poll()
       assert(msg6 === NilMessageFrame)

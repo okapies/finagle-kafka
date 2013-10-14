@@ -9,19 +9,21 @@ import org.jboss.netty.handler.codec.replay.ReplayingDecoder
 import Spec._
 import KafkaFrameDecoderState._
 
-trait KafkaFrame
+sealed trait KafkaFrame
 
 case class ResponseFrame(
   apiKey: Int16,
   correlationId: Int32,
   frame: ChannelBuffer) extends KafkaFrame
 
-case class MessageFrame(
-  correlationId: Int32,
-  topicName: String,
-  partition: Int32,
+case class PartitionFrame(
+  topicPartition: TopicPartition,
   errorCode: Int16,
-  highwaterMarkOffset: Int64,
+  highwaterMarkOffset: Int64
+)
+
+case class MessageFrame(
+  topicPartition: TopicPartition,
   offset: Int64,
   frame: ChannelBuffer) extends KafkaFrame
 
@@ -33,8 +35,6 @@ class KafkaFrameDecoder(
 ) extends ReplayingDecoder[KafkaFrameDecoderState](READ_HEADER, true /* unfold */) {
 
   private[this] var size: Int32 = _
-
-  private[this] var correlationId: Int32 = _
 
   /* context of fetched messages */
 
@@ -50,7 +50,7 @@ class KafkaFrameDecoder(
 
   private[this] var readPartitionCount: Int32 = _
 
-  private[this] var partition: Int32 = _
+  private[this] var topicPartition: TopicPartition = _
 
   private[this] var errorCode: Int16 = _
 
@@ -68,7 +68,7 @@ class KafkaFrameDecoder(
       state: KafkaFrameDecoderState): AnyRef = state match {
     case READ_HEADER =>
       size = buffer.decodeInt32()          // int32
-      correlationId = buffer.decodeInt32() // int32
+      val correlationId = buffer.decodeInt32() // int32
 
       apiKeyByReq(correlationId) match {
         case Some(ApiKeyFetch) =>
@@ -128,10 +128,11 @@ class KafkaFrameDecoder(
     case READ_PARTITION =>
       partitionCount - readPartitionCount match { // Partition
         case n if n > 0 =>
-          partition = buffer.decodeInt32()           // int32
+          val partition = buffer.decodeInt32()       // int32
           errorCode = buffer.decodeInt16()           // int16
           highwaterMarkOffset = buffer.decodeInt64() // int64
 
+          topicPartition = TopicPartition(topicName, partition)
           readSize +=
             4 + /* Partition */
             2 + /* ErrorCode */
@@ -139,7 +140,7 @@ class KafkaFrameDecoder(
           readPartitionCount += 1
           checkpoint(READ_MESSAGE_SET)
 
-          decode(ctx, channel, buffer, READ_MESSAGE_SET)
+          PartitionFrame(topicPartition, errorCode, highwaterMarkOffset)
         case n if n == 0 =>
           setState(READ_TOPIC)
           decode(ctx, channel, buffer, READ_TOPIC)
@@ -167,12 +168,7 @@ class KafkaFrameDecoder(
           readSize += length
           readMessageSetSize += length
 
-          val messageFrame =
-            MessageFrame(
-              correlationId,
-              topicName, partition, errorCode, highwaterMarkOffset,
-              offset, frame)
-
+          val messageFrame = MessageFrame(topicPartition, offset, frame)
           size - readSize match {
             case n if n > 0 =>
               checkpoint() // continue
