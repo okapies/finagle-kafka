@@ -28,7 +28,8 @@ private[protocol] trait RequestLogger {
 
 }
 
-private[protocol] class CorrelationSelector extends (Int => Option[Short]) with RequestLogger {
+private[protocol] class CorrelationBasedSelector
+  extends (Int => Option[Short]) with RequestLogger {
 
   private[this] val requests = new ConcurrentHashMap[Int, Short]
 
@@ -41,11 +42,11 @@ private[protocol] class CorrelationSelector extends (Int => Option[Short]) with 
 
 }
 
-object KafkaClientPipelineFactory extends ChannelPipelineFactory {
+object KafkaBatchClientPipelineFactory extends ChannelPipelineFactory {
   def getPipeline() = {
     val pipeline = Channels.pipeline()
 
-    val selector = new CorrelationSelector
+    val selector = new CorrelationBasedSelector
 
     // encoders (downstream)
     pipeline.addLast("frameEncoder", new LengthFieldPrepender(4))
@@ -53,7 +54,25 @@ object KafkaClientPipelineFactory extends ChannelPipelineFactory {
 
     // decoders (upstream)
     pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(8192, 0, 4, 0, 4))
-    pipeline.addLast("responseDecoder", new ResponseDecoder(selector))
+    pipeline.addLast("responseDecoder", new BatchResponseDecoder(selector))
+
+    pipeline
+  }
+}
+
+object KafkaStreamClientPipelineFactory extends ChannelPipelineFactory {
+  def getPipeline() = {
+    val pipeline = Channels.pipeline()
+
+    val selector = new CorrelationBasedSelector
+
+    // encoders (downstream)
+    pipeline.addLast("frameEncoder", new LengthFieldPrepender(4))
+    pipeline.addLast("requestEncoder", new RequestEncoder(selector))
+
+    // decoders (upstream)
+    pipeline.addLast("frameDecoder", new KafkaFrameDecoder(selector, 8192))
+    pipeline.addLast("responseDecoder", new StreamResponseDecoder)
 
     pipeline
   }
@@ -73,7 +92,7 @@ class Kafka(stats: StatsReceiver) extends CodecFactory[Request, Response] {
   def client: ClientCodecConfig => Codec[Request, Response] =
     Function.const {
       new Codec[Request, Response] {
-        def pipelineFactory = KafkaClientPipelineFactory
+        def pipelineFactory = KafkaStreamClientPipelineFactory
 
         override def prepareConnFactory(underlying: ServiceFactory[Request, Response]) = {
           new KafkaTracingFilter() andThen new KafkaLoggingFilter(stats) andThen underlying

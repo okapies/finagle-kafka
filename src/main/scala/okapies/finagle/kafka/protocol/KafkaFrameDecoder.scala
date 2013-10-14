@@ -20,7 +20,7 @@ case class PartitionFrame(
   topicPartition: TopicPartition,
   errorCode: Int16,
   highwaterMarkOffset: Int64
-)
+) extends KafkaFrame
 
 case class MessageFrame(
   topicPartition: TopicPartition,

@@ -1,5 +1,8 @@
 package okapies.finagle.kafka.protocol
 
+import com.twitter.concurrent.Offer
+import com.twitter.util.Future
+
 sealed trait Response {
   def correlationId: Int // int32
 }
@@ -30,6 +33,25 @@ case class FetchResult(
   messages: Seq[MessageWithOffset] // MessageSetSize MessageSet
 )
 
+case class StreamFetchResponse(
+  correlationId: Int, // int32
+  partitions: Offer[FetchPartition],
+  messages: Offer[FetchMessage],
+  onComplete: Future[Unit]
+) extends Response
+
+case class FetchPartition(
+  topicPartition: TopicPartition,
+  error: KafkaError,        // int16
+  highwaterMarkOffset: Long // int64
+)
+
+case class FetchMessage(
+  topicPartition: TopicPartition,
+  offset: Long, // int64
+  message: Message
+)
+
 // OffsetResponse
 case class OffsetResponse(
   correlationId: Int,        // int32
@@ -45,11 +67,11 @@ case class OffsetResult(
 // MetadataResponse
 case class MetadataResponse(
   correlationId: Int,        // int32
-  brokers: Seq[Broker],      // [Broker]
+  brokers: Seq[KafkaBroker], // [Broker]
   topics: Seq[TopicMetadata] // [TopicMetadata]
 ) extends Response
 
-case class Broker(
+case class KafkaBroker(
   nodeId: Int,  // int32
   host: String, // string
   port: Int     // int32
@@ -62,11 +84,11 @@ case class TopicMetadata(
 )
 
 case class PartitionMetadata(
-  error: KafkaError,      // int16
-  id: Int,                // int32
-  leader: Option[Broker], // int32
-  replicas: Seq[Broker],  // [int32]
-  isr: Seq[Broker]        // [int32]
+  error: KafkaError,           // int16
+  id: Int,                     // int32
+  leader: Option[KafkaBroker], // int32
+  replicas: Seq[KafkaBroker],  // [int32]
+  isr: Seq[KafkaBroker]        // [int32]
 )
 
 // OffsetCommitReponse
