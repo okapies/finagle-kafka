@@ -26,6 +26,8 @@ private[protocol] trait RequestLogger {
 
   def append(req: Request): Unit
 
+  def remove(req: Request): Unit
+
 }
 
 private[protocol] class CorrelationBasedSelector
@@ -35,9 +37,13 @@ private[protocol] class CorrelationBasedSelector
 
   def apply(correlationId: Int) = Option(requests.remove(correlationId))
 
-  def append(req: Request) = {
+  def append(req: Request) {
     requests.putIfAbsent(req.correlationId, Request.toApiKey(req))
     // TODO: handle duplicate correlationId
+  }
+
+  def remove(req: Request) {
+    requests.remove(req.correlationId)
   }
 
 }

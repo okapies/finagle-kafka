@@ -1,8 +1,9 @@
 package okapies.finagle.kafka.protocol
 
 import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
-import org.jboss.netty.channel.{Channel, ChannelHandlerContext}
-import org.jboss.netty.handler.codec.oneone.{OneToOneDecoder, OneToOneEncoder}
+import org.jboss.netty.channel._
+import org.jboss.netty.channel.Channels._
+import org.jboss.netty.handler.codec.oneone.OneToOneDecoder
 
 /**
  *  TODO: Not implemented yet.
@@ -17,27 +18,36 @@ class RequestDecoder extends OneToOneDecoder {
 
 }
 
-class RequestEncoder(logger: RequestLogger) extends OneToOneEncoder {
+class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandler {
 
   import Spec._
 
-  def encode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef) = {
-    val req = msg match {
-      case req: ProduceRequest => encodeProduceRequest(req)
-      case req: FetchRequest => encodeFetchRequest(req)
-      case req: OffsetRequest => encodeOffsetRequest(req)
-      case req: MetadataRequest => encodeMetadataRequest(req)
-      case req: OffsetCommitRequest => encodeOffsetCommitRequest(req)
-      case req: OffsetFetchRequest => encodeOffsetFetchRequest(req)
-      case _ => msg // fall through
-    }
+  override def writeRequested(ctx: ChannelHandlerContext, e: MessageEvent) {
+    e.getMessage match {
+      case req: Request =>
+        val buf = req match {
+          case req: ProduceRequest => encodeProduceRequest(req)
+          case req: FetchRequest => encodeFetchRequest(req)
+          case req: OffsetRequest => encodeOffsetRequest(req)
+          case req: MetadataRequest => encodeMetadataRequest(req)
+          case req: OffsetCommitRequest => encodeOffsetCommitRequest(req)
+          case req: OffsetFetchRequest => encodeOffsetFetchRequest(req)
+        }
 
-    msg match {
-      case req: Request => logger.append(req) // TODO: handle network error
-      case _ =>
-    }
+        logger.append(req)
 
-    req
+        val future = e.getFuture
+        future.addListener(new ChannelFutureListener {
+          def operationComplete(f: ChannelFuture) {
+            if (!f.isSuccess) { // cancelled or failed
+              logger.remove(req)
+            }
+          }
+        })
+
+        write(ctx, future, buf, e.getRemoteAddress)
+      case _ => super.writeRequested(ctx, e) // fall through
+    }
   }
 
   private def encodeRequestHeader(buf: ChannelBuffer, apiKey: Short, req: Request) {
