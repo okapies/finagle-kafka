@@ -8,9 +8,9 @@ import org.jboss.netty.handler.codec.frame.{LengthFieldPrepender, LengthFieldBas
 import com.twitter.finagle._
 import com.twitter.finagle.stats.{NullStatsReceiver, StatsReceiver}
 
-object Kafka {
-  def apply() = new Kafka()
-  def apply(stats: StatsReceiver = NullStatsReceiver) = new Kafka(stats)
+object KafkaCodec {
+  def apply() = new KafkaCodecFactory()
+  def apply(stats: StatsReceiver = NullStatsReceiver) = new KafkaCodecFactory(stats)
   def get() = apply()
 }
 
@@ -84,7 +84,7 @@ object KafkaStreamClientPipelineFactory extends ChannelPipelineFactory {
   }
 }
 
-class Kafka(stats: StatsReceiver) extends CodecFactory[Request, Response] {
+class KafkaCodecFactory(stats: StatsReceiver) extends CodecFactory[Request, Response] {
 
   def this() = this(NullStatsReceiver)
 

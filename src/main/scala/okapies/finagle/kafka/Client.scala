@@ -1,14 +1,13 @@
 package okapies.finagle.kafka
 
-import com.twitter.finagle.builder.ClientBuilder
-import okapies.finagle.kafka.protocol.Kafka
+import com.twitter.finagle.Service
+
+import okapies.finagle.kafka.protocol.{Request, Response}
 
 object Client {
 
-  def apply(hosts: String) = ClientBuilder()
-    .codec(Kafka())
-    .hosts(hosts)
-    .hostConnectionLimit(1)
-    .build()
+  def apply(raw: Service[Request, Response]): Client = new Client(raw)
 
 }
+
+class Client(service: Service[Request, Response])
