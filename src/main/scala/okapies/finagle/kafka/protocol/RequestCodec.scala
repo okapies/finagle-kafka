@@ -67,6 +67,7 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
     val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyProduce, req)
 
+    // TODO: return empty response immediately if requiredAcks == 0
     buf.encodeInt16(req.requiredAcks)
     buf.encodeInt32(req.timeout)
 

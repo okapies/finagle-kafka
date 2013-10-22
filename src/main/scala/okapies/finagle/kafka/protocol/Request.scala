@@ -36,6 +36,16 @@ case class ProduceRequestPartition(
   messages: Seq[Message]
 )
 
+sealed abstract class RequiredAcks(val acks: Short)
+
+case object WaitAllReplicas extends RequiredAcks(-1)
+
+case object NoWaitAcks extends RequiredAcks(0)
+
+case object WaitLeader extends RequiredAcks(1)
+
+case class WaitReplicas(_acks: Short) extends RequiredAcks(_acks)
+
 // FetchRequest
 case class FetchRequest(
   correlationId: Int, // int32
