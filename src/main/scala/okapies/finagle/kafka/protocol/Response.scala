@@ -1,5 +1,7 @@
 package okapies.finagle.kafka.protocol
 
+import org.jboss.netty.buffer.ChannelBuffer
+
 import com.twitter.concurrent.Offer
 import com.twitter.util.Future
 
@@ -9,12 +11,12 @@ sealed trait Response {
 
 // ProduceResponse
 case class ProduceResponse(
-  correlationId: Int,         // int32
-  results: Seq[ProduceResult] // [TopicName [Partition ErrorCode Offset]]
+  correlationId: Int, // int32
+  results: Map[String, Map[Int, ProduceResult]]
+    // [TopicName [Partition ErrorCode Offset]]
 ) extends Response
 
 case class ProduceResult(
-  topicPartition: TopicPartition,
   error: KafkaError, // int16
   offset: Long       // int64
 )
@@ -22,12 +24,11 @@ case class ProduceResult(
 // FetchResponse
 case class FetchResponse(
   correlationId: Int, // int32
-  results: Seq[FetchResult]
+  results: Map[String, Map[Int, FetchResult]]
     // [TopicName [Partition ErrorCode HighwaterMarkOffset MessageSetSize MessageSet]]
 ) extends Response
 
 case class FetchResult(
-  topicPartition: TopicPartition,
   error: KafkaError,               // int16
   highwaterMarkOffset: Long,       // int64
   messages: Seq[MessageWithOffset] // MessageSetSize MessageSet
@@ -35,31 +36,19 @@ case class FetchResult(
 
 case class StreamFetchResponse(
   correlationId: Int, // int32
-  partitions: Offer[FetchPartition],
-  messages: Offer[FetchMessage],
+  partitions: Offer[PartitionStatus],
+  messages: Offer[FetchedMessage],
   onComplete: Future[Unit]
 ) extends Response
-
-case class FetchPartition(
-  topicPartition: TopicPartition,
-  error: KafkaError,        // int16
-  highwaterMarkOffset: Long // int64
-)
-
-case class FetchMessage(
-  topicPartition: TopicPartition,
-  offset: Long, // int64
-  message: Message
-)
 
 // OffsetResponse
 case class OffsetResponse(
   correlationId: Int,        // int32
-  results: Seq[OffsetResult] // [TopicName [PartitionOffsets]]
+  results: Map[String, Map[Int, OffsetResult]]
+    // [TopicName [PartitionOffsets]]
 ) extends Response
 
 case class OffsetResult(
-  topicPartition: TopicPartition,
   error: KafkaError, // int16
   offsets: Seq[Long] // [int64]
 )
@@ -67,11 +56,11 @@ case class OffsetResult(
 // MetadataResponse
 case class MetadataResponse(
   correlationId: Int,        // int32
-  brokers: Seq[KafkaBroker], // [Broker]
+  brokers: Seq[Broker],      // [Broker]
   topics: Seq[TopicMetadata] // [TopicMetadata]
 ) extends Response
 
-case class KafkaBroker(
+case class Broker(
   nodeId: Int,  // int32
   host: String, // string
   port: Int     // int32
@@ -84,22 +73,21 @@ case class TopicMetadata(
 )
 
 case class PartitionMetadata(
-  error: KafkaError,           // int16
-  id: Int,                     // int32
-  leader: Option[KafkaBroker], // int32
-  replicas: Seq[KafkaBroker],  // [int32]
-  isr: Seq[KafkaBroker]        // [int32]
+  error: KafkaError,      // int16
+  id: Int,                // int32
+  leader: Option[Broker], // int32
+  replicas: Seq[Broker],  // [int32]
+  isr: Seq[Broker]        // [int32]
 )
 
 // OffsetCommitReponse
 case class OffsetCommitResponse(
   correlationId: Int, // int32
   clientId: String,   // string
-  results: Seq[OffsetCommitResult]
+  results: Map[String, Map[Int, OffsetCommitResult]]
 ) extends Response
 
 case class OffsetCommitResult(
-  topicPartition: TopicPartition,
   error: KafkaError // int16
 )
 
@@ -107,12 +95,42 @@ case class OffsetCommitResult(
 case class OffsetFetchResponse(
   correlationId: Int, // int32
   clientId: String,   // string
-  results: Seq[OffsetFetchResult]
+  results: Map[String, Map[Int, OffsetFetchResult]]
 ) extends Response
 
 case class OffsetFetchResult(
-  topicPartition: TopicPartition,
   offset: Long,      // int64
   metadata: String,  // string
   error: KafkaError  // int16
 )
+
+/**
+ * A message frame for responses.
+ */
+sealed trait ResponseFrame
+
+case class BufferResponseFrame(
+  apiKey: Short,
+  correlationId: Int,
+  frame: ChannelBuffer
+) extends ResponseFrame
+
+case class FetchResponseFrame(
+  correlationId: Int
+) extends ResponseFrame
+
+case class PartitionStatus(
+  topicName: String,        // string
+  partition: Int,           // int32
+  error: KafkaError,        // int16
+  highwaterMarkOffset: Long // int64
+) extends ResponseFrame
+
+case class FetchedMessage(
+  topicName: String, // string
+  partition: Int,    // int32
+  offset: Long,      // int64
+  message: Message
+) extends ResponseFrame
+
+case object NilMessageFrame extends ResponseFrame

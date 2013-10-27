@@ -17,24 +17,24 @@ private[protocol] object Spec {
   type Int64 = Long
 
   // Api Versions
-  val ApiVersion0 = 0: Int16
+  final val ApiVersion0 = 0: Int16
 
   // Api Keys
-  val ApiKeyProduce      = 0: Int16
-  val ApiKeyFetch        = 1: Int16
-  val ApiKeyOffset       = 2: Int16
-  val ApiKeyMetadata     = 3: Int16
-  val ApiKeyLeaderAndIsr = 4: Int16
-  val ApiKeyStopReplica  = 5: Int16
-  val ApiKeyOffsetCommit = 6: Int16
-  val ApiKeyOffsetFetch  = 7: Int16
+  final val ApiKeyProduce      = 0: Int16
+  final val ApiKeyFetch        = 1: Int16
+  final val ApiKeyOffset       = 2: Int16
+  final val ApiKeyMetadata     = 3: Int16
+  final val ApiKeyLeaderAndIsr = 4: Int16
+  final val ApiKeyStopReplica  = 5: Int16
+  final val ApiKeyOffsetCommit = 6: Int16
+  final val ApiKeyOffsetFetch  = 7: Int16
 
   // length of fields
-  val CorrelationIdLength = 4
-  val ArraySizeLength = 4
+  final val CorrelationIdLength = 4
+  final val ArraySizeLength = 4
 
   // Encoding
-  val DefaultCharset = Charset.forName("UTF-8")
+  final val DefaultCharset = Charset.forName("UTF-8")
 
   /*
    * Implicit conversions
@@ -42,8 +42,6 @@ private[protocol] object Spec {
 
   // TODO: Use implicit value class in Scala 2.10
   //import scala.language.implicitConversions
-
-  implicit def asKafkaError(code: Int16): KafkaError = KafkaError(code)
 
   implicit def asKafkaChannelBuffer(buf: ChannelBuffer) = new KafkaChannelBuffer(buf)
 

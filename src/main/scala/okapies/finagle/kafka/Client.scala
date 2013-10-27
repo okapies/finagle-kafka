@@ -24,43 +24,37 @@ class Client(
 
   private[this] def nextCorrelationId(): Int = correlationId.incrementAndGet()
 
-  def produce(
-      topicName: String,
-      partitionId: Int,
-      messages: Message*): Future[Seq[ProduceResult]] =
-    produce(Seq(ProduceRequestPartition(TopicPartition(topicName, partitionId), messages)))
+  def produce(topicName: String, partition: Int, messageSet: Message*): Future[ProduceResult] =
+    produce(Map(topicName -> Map(partition -> messageSet))).map(_.values.head.values.head)
 
-  def produce(
-      partitions: Seq[ProduceRequestPartition],
-      timeout: Duration = Duration.Top,
-      requiredAcks: RequiredAcks = WaitLeader): Future[Seq[ProduceResult]] =
+  def produce(messageSets: Map[String, Map[Int, Seq[Message]]],
+              timeout: Duration = Duration.Top,
+              requiredAcks: RequiredAcks = RequiredAcks.WaitForLeader
+               ): Future[Map[String, Map[Int, ProduceResult]]] =
     doRequest(ProduceRequest(
         nextCorrelationId(),
         clientId,
-        requiredAcks.acks,
+        requiredAcks,
         timeout.inMilliseconds.toInt,
-        partitions)) {
+        messageSets)) {
       case ProduceResponse(_, results) => Future.value(results)
     }
 
-  def fetch(
-      topicName: String,
-      partitionId: Int,
-      offset: Long): Future[StreamFetchResponse] =
-    fetch(topicName, partitionId, offset, Int.MaxValue)
+  def fetch(topicName: String,
+            partition: Int,
+            offset: Long): Future[StreamFetchResponse] =
+    fetch(topicName, partition, offset, Int.MaxValue)
 
-  def fetch(
-      topicName: String,
-      partitionId: Int,
-      offset: Long,
-      maxBytes: Int): Future[StreamFetchResponse] =
-    fetch(Seq(FetchRequestPartition(TopicPartition(topicName, partitionId), offset, maxBytes)))
+  def fetch(topicName: String,
+            partition: Int,
+            offset: Long,
+            maxBytes: Int): Future[StreamFetchResponse] =
+    fetch(Map(topicName -> Map(partition -> FetchOffset(offset, maxBytes))))
 
-  def fetch(
-      partitions: Seq[FetchRequestPartition],
-      minBytes: Int = 0,
-      maxWaitTime: Duration = Duration.Top,
-      replicaId: Int = -1): Future[StreamFetchResponse] =
+  def fetch(partitions: Map[String, Map[Int, FetchOffset]],
+            minBytes: Int = 0,
+            maxWaitTime: Duration = Duration.Top,
+            replicaId: Int = -1): Future[StreamFetchResponse] =
     doRequest(FetchRequest(
         nextCorrelationId(),
         clientId,
@@ -71,23 +65,21 @@ class Client(
       case res: StreamFetchResponse => Future.value(res)
     }
 
-  def offset(topicName: String, partitionId: Int): Future[Seq[OffsetResult]] =
-    offset(topicName, partitionId, -1)
+  def offset(topicName: String, partition: Int): Future[OffsetResult] =
+    offset(topicName, partition, -1)
 
-  def offset(topicName: String, partitionId: Int, time: Long): Future[Seq[OffsetResult]] =
-    offset(topicName, partitionId, time, Int.MaxValue)
+  def offset(topicName: String, partition: Int, time: Long): Future[OffsetResult] =
+    offset(topicName, partition, time, Int.MaxValue)
 
-  def offset(
-      topicName: String,
-      partitionId: Int,
-      time: Long,
-      maxNumberOfOffsets: Int): Future[Seq[OffsetResult]] =
-    offset(Seq(OffsetRequestPartition(
-      TopicPartition(topicName, partitionId), time, maxNumberOfOffsets)))
+  def offset(topicName: String,
+             partition: Int,
+             time: Long,
+             maxNumberOfOffsets: Int): Future[OffsetResult] =
+    offset(Map(topicName -> Map(partition ->
+      OffsetFilter(time, maxNumberOfOffsets)))).map(_.values.head.values.head)
 
-  def offset(
-      partitions: Seq[OffsetRequestPartition],
-      replicaId: Int = -1): Future[Seq[OffsetResult]] =
+  def offset(partitions: Map[String, Map[Int, OffsetFilter]],
+             replicaId: Int = -1): Future[Map[String, Map[Int, OffsetResult]]] =
     doRequest(OffsetRequest(
       nextCorrelationId(),
       clientId,

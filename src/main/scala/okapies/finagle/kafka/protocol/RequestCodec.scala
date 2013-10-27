@@ -68,16 +68,15 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
     encodeRequestHeader(buf, ApiKeyProduce, req)
 
     // TODO: return empty response immediately if requiredAcks == 0
-    buf.encodeInt16(req.requiredAcks)
+    buf.encodeInt16(req.requiredAcks.count)
     buf.encodeInt32(req.timeout)
 
     // [TopicName [Partition MessageSetSize MessageSet]]
-    val topics = req.partitions.groupBy(_.topicPartition.topic) // group by topicName
-    buf.encodeArray(topics) { case (topicName, partitions) =>
+    buf.encodeArray(req.messageSets) { case (topicName, messageSets) =>
       buf.encodeString(topicName)
-      buf.encodeArray(partitions) { partition =>
-        buf.encodeInt32(partition.topicPartition.partition)
-        buf.encodeMessageSet(partition.messages) { message =>
+      buf.encodeArray(messageSets) { case (partition, messageSet) =>
+        buf.encodeInt32(partition)
+        buf.encodeMessageSet(messageSet) { message =>
           buf.encodeInt64(0L)                 // Offset (Note: It can be any value)
           buf.encodeBytes(message.underlying) // MessageSize + Message
         }
@@ -101,13 +100,12 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
     buf.encodeInt32(req.minBytes)
 
     // [TopicName [Partition FetchOffset MaxBytes]
-    val topics = req.partitions.groupBy(_.topicPartition.topic) // group by topicName
-    buf.encodeArray(topics) { case (topicName, partitions) =>
+    buf.encodeArray(req.topicPartitions) { case (topicName, partitions) =>
       buf.encodeString(topicName)
-      buf.encodeArray(partitions) { partition =>
-        buf.encodeInt32(partition.topicPartition.partition)
-        buf.encodeInt64(partition.offset)
-        buf.encodeInt32(partition.maxBytes)
+      buf.encodeArray(partitions) { case (partition, offset) =>
+        buf.encodeInt32(partition)
+        buf.encodeInt64(offset.offset)
+        buf.encodeInt32(offset.maxBytes)
       }
     }
 
@@ -124,13 +122,12 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
     encodeRequestHeader(buf, ApiKeyOffset, req)
 
     buf.encodeInt32(req.replicaId)
-    val topics = req.partitions.groupBy(_.topicPartition.topic) // group by topicName
-    buf.encodeArray(topics) { case (topicName, partitions) =>
+    buf.encodeArray(req.topicPartitions) { case (topicName, partitions) =>
       buf.encodeString(topicName)
-      buf.encodeArray(partitions) { partition =>
-        buf.encodeInt32(partition.topicPartition.partition)
-        buf.encodeInt64(partition.time)
-        buf.encodeInt32(partition.maxNumberOfOffsets)
+      buf.encodeArray(partitions) { case (partition, filter) =>
+        buf.encodeInt32(partition)
+        buf.encodeInt64(filter.time)
+        buf.encodeInt32(filter.maxNumberOfOffsets)
       }
     }
 
@@ -164,13 +161,12 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
 
     buf.encodeString(req.consumerGroup)
 
-    val topics = req.partitions.groupBy(_.topicPartition.topic) // group by topicName
-    buf.encodeArray(topics) { case (topicName, partitions) =>
+    buf.encodeArray(req.commits) { case (topicName, partitions) =>
       buf.encodeString(topicName)
-      buf.encodeArray(partitions) { partition =>
-        buf.encodeInt32(partition.topicPartition.partition)
-        buf.encodeInt64(partition.offset)
-        buf.encodeString(partition.metadata)
+      buf.encodeArray(partitions) { case (partition, commit) =>
+        buf.encodeInt32(partition)
+        buf.encodeInt64(commit.offset)
+        buf.encodeString(commit.metadata)
       }
     }
 
@@ -190,11 +186,10 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
 
     buf.encodeString(req.consumerGroup)
 
-    val topics = req.partitions.groupBy(_.topic) // group by topicName
-    buf.encodeArray(topics) { case (topicName, partitions) =>
+    buf.encodeArray(req.partitions) { case (topicName, partitions) =>
       buf.encodeString(topicName)
       buf.encodeArray(partitions) { partition =>
-        buf.encodeInt32(partition.partition)
+        buf.encodeInt32(partition)
       }
     }
 

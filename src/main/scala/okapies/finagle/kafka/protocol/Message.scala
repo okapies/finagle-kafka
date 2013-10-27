@@ -117,11 +117,3 @@ case class MessageWithOffset(
   offset: Long,    // int64
   message: Message // Message
 )
-
-/**
- * A partition within a topic.
- */
-case class TopicPartition(
-  topic: String, // string
-  partition: Int // int32
-)

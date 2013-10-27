@@ -2,60 +2,59 @@ package okapies.finagle.kafka.protocol
 
 import kafka.common.ErrorMapping
 
-abstract class KafkaError(val code: Short /* int16 */) {
+case class KafkaError(code: Short /* int16 */) {
 
   def throwException() = ErrorMapping.maybeThrowException(code)
 
+  override def toString = code match {
+    case ErrorMapping.UnknownCode => "Unknown"
+    case ErrorMapping.NoError => "NoError"
+    case ErrorMapping.OffsetOutOfRangeCode => "OffsetOutOfRange"
+    case ErrorMapping.InvalidMessageCode => "InvalidMessage"
+    case ErrorMapping.UnknownTopicOrPartitionCode => "UnknownTopicOrPartition"
+    case ErrorMapping.InvalidFetchSizeCode => "InvalidFetchSize"
+    case ErrorMapping.LeaderNotAvailableCode => "LeaderNotAvailable"
+    case ErrorMapping.NotLeaderForPartitionCode => "NotLeaderForPartition"
+    case ErrorMapping.RequestTimedOutCode => "RequestTimedOut"
+    case ErrorMapping.BrokerNotAvailableCode => "BrokerNotAvailable"
+    case ErrorMapping.ReplicaNotAvailableCode => "ReplicaNotAvailable"
+    case ErrorMapping.MessageSizeTooLargeCode => "MessageSizeTooLarge"
+    case ErrorMapping.StaleControllerEpochCode => "StaleControllerEpoch"
+    //case ErrorMapping.OffsetMetadataTooLargeCode => "OffsetMetadataTooLarge"
+    case _ => super.toString
+  }
+
 }
-
-case object Unknown extends KafkaError(ErrorMapping.UnknownCode)
-
-case object NoError extends KafkaError(ErrorMapping.NoError)
-
-case object OffsetOutOfRange extends KafkaError(ErrorMapping.OffsetOutOfRangeCode)
-
-case object InvalidMessage extends KafkaError(ErrorMapping.InvalidMessageCode)
-
-case object UnknownTopicOrPartition extends KafkaError(ErrorMapping.UnknownTopicOrPartitionCode)
-
-case object InvalidFetchSize extends KafkaError(ErrorMapping.InvalidFetchSizeCode)
-
-case object LeaderNotAvailable extends KafkaError(ErrorMapping.LeaderNotAvailableCode)
-
-case object NotLeaderForPartition extends KafkaError(ErrorMapping.NotLeaderForPartitionCode)
-
-case object RequestTimedOut extends KafkaError(ErrorMapping.RequestTimedOutCode)
-
-case object BrokerNotAvailable extends KafkaError(ErrorMapping.BrokerNotAvailableCode)
-
-case object ReplicaNotAvailable extends KafkaError(ErrorMapping.ReplicaNotAvailableCode)
-
-case object MessageSizeTooLarge extends KafkaError(ErrorMapping.MessageSizeTooLargeCode)
-
-case object StaleControllerEpoch extends KafkaError(ErrorMapping.StaleControllerEpochCode)
-
-//case object OffsetMetadataTooLarge extends KafkaError(ErrorMapping.OffsetMetadataTooLargeCode)
 
 object KafkaError {
 
-  def apply(code: Short) = toError(code)
+  final val Unknown = KafkaError(ErrorMapping.UnknownCode)
 
-  private[this] val toError = Map(
-    ErrorMapping.UnknownCode -> Unknown,
-    ErrorMapping.NoError -> NoError,
-    ErrorMapping.OffsetOutOfRangeCode -> OffsetOutOfRange,
-    ErrorMapping.InvalidMessageCode -> InvalidMessage,
-    ErrorMapping.UnknownTopicOrPartitionCode -> UnknownTopicOrPartition,
-    ErrorMapping.InvalidFetchSizeCode -> InvalidFetchSize,
-    ErrorMapping.LeaderNotAvailableCode -> LeaderNotAvailable,
-    ErrorMapping.NotLeaderForPartitionCode -> NotLeaderForPartition,
-    ErrorMapping.RequestTimedOutCode -> RequestTimedOut,
-    ErrorMapping.BrokerNotAvailableCode -> BrokerNotAvailable,
-    ErrorMapping.ReplicaNotAvailableCode -> ReplicaNotAvailable,
-    ErrorMapping.MessageSizeTooLargeCode -> MessageSizeTooLarge,
-    ErrorMapping.StaleControllerEpochCode -> StaleControllerEpoch
-    //ErrorMapping.OffsetMetadataTooLargeCode -> OffsetMetadataTooLarge
-  )
+  final val NoError = KafkaError(ErrorMapping.NoError)
+
+  final val OffsetOutOfRange = KafkaError(ErrorMapping.OffsetOutOfRangeCode)
+
+  final val InvalidMessage = KafkaError(ErrorMapping.InvalidMessageCode)
+
+  final val UnknownTopicOrPartition = KafkaError(ErrorMapping.UnknownTopicOrPartitionCode)
+
+  final val InvalidFetchSize = KafkaError(ErrorMapping.InvalidFetchSizeCode)
+
+  final val LeaderNotAvailable = KafkaError(ErrorMapping.LeaderNotAvailableCode)
+
+  final val NotLeaderForPartition = KafkaError(ErrorMapping.NotLeaderForPartitionCode)
+
+  final val RequestTimedOut = KafkaError(ErrorMapping.RequestTimedOutCode)
+
+  final val BrokerNotAvailable = KafkaError(ErrorMapping.BrokerNotAvailableCode)
+
+  final val ReplicaNotAvailable = KafkaError(ErrorMapping.ReplicaNotAvailableCode)
+
+  final val MessageSizeTooLarge = KafkaError(ErrorMapping.MessageSizeTooLargeCode)
+
+  final val StaleControllerEpoch = KafkaError(ErrorMapping.StaleControllerEpochCode)
+
+  //val OffsetMetadataTooLarge = KafkaError(ErrorMapping.OffsetMetadataTooLargeCode)
 
 }
 

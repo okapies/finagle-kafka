@@ -23,33 +23,35 @@ class BatchResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecod
 
 class StreamResponseDecoder extends OneToOneDecoder {
 
-  import com.twitter.concurrent.Broker
+  import com.twitter.concurrent.{Broker => TwitterBroker}
   import com.twitter.util.Promise
 
   import ResponseDecoder._
   import Spec._
 
-  private[this] var partitions: Broker[FetchPartition] = null
+  private[this] var partitions: TwitterBroker[PartitionStatus] = null
 
-  private[this] var messages: Broker[FetchMessage] = null
+  private[this] var messages: TwitterBroker[FetchedMessage] = null
 
   private[this] var complete: Promise[Unit] = null
 
   def decode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef) = msg match {
-    case ResponseFrame(apiKey, correlationId, frame) => apiKey match {
-      case ApiKeyFetch =>
-        partitions = new Broker[FetchPartition]
-        messages = new Broker[FetchMessage]
-        complete = new Promise[Unit]
+    case BufferResponseFrame(apiKey, correlationId, frame) =>
+      decodeResponse(apiKey, correlationId, frame)
 
-        StreamFetchResponse(correlationId, partitions.recv, messages.recv, complete)
-      case _ => decodeResponse(apiKey, correlationId, frame)
-    }
-    case PartitionFrame(topicPartition, errorCode, highwaterMarkOffset) =>
-      partitions ! FetchPartition(topicPartition, KafkaError(errorCode), highwaterMarkOffset)
+    case FetchResponseFrame(correlationId) =>
+      partitions = new TwitterBroker[PartitionStatus]
+      messages = new TwitterBroker[FetchedMessage]
+      complete = new Promise[Unit]
+
+      StreamFetchResponse(correlationId, partitions.recv, messages.recv, complete)
+    case partition: PartitionStatus =>
+      partitions ! partition
+
       null
-    case MessageFrame(topicPartition, offset, frame) =>
-      messages ! FetchMessage(topicPartition, offset, Message(frame))
+    case msg: FetchedMessage =>
+      messages ! msg
+
       null
     case NilMessageFrame =>
       complete.setValue(())
@@ -89,14 +91,16 @@ object ResponseDecoder {
       val topicName = buf.decodeString()
 
       // [Partition ErrorCode Offset]
-      buf.decodeArray {
+      val partitions = buf.decodeArray {
         val partition = buf.decodeInt32()
         val error: KafkaError = buf.decodeInt16()
         val offset = buf.decodeInt64()
 
-        ProduceResult(TopicPartition(topicName, partition), error, offset)
-      }
-    }.flatten
+        partition -> ProduceResult(error, offset)
+      }.toMap
+
+      topicName -> partitions
+    }.toMap
 
     ProduceResponse(correlationId, results)
   }
@@ -111,15 +115,17 @@ object ResponseDecoder {
       val topicName = buf.decodeString()
 
       // [Partition ErrorCode HighwaterMarkOffset MessageSetSize MessageSet]
-      buf.decodeArray {
+      val partitions = buf.decodeArray {
         val partition = buf.decodeInt32()
         val error: KafkaError = buf.decodeInt16()
         val highwaterMarkOffset = buf.decodeInt64()
         val messages = buf.decodeMessageSet()
 
-        FetchResult(TopicPartition(topicName, partition), error, highwaterMarkOffset, messages)
-      }
-    }.flatten
+        partition -> FetchResult(error, highwaterMarkOffset, messages)
+      }.toMap
+
+      topicName -> partitions
+    }.toMap
 
     FetchResponse(correlationId, results)
   }
@@ -135,14 +141,16 @@ object ResponseDecoder {
       val topicName = buf.decodeString()
 
       // [Partition ErrorCode [Offset]]
-      buf.decodeArray {
+      val partitions = buf.decodeArray {
         val partition = buf.decodeInt32()
         val error: KafkaError = buf.decodeInt16()
         val offsets = buf.decodeArray(buf.decodeInt64())
 
-        OffsetResult(TopicPartition(topicName, partition), error, offsets)
-      }
-    }.flatten
+        partition -> OffsetResult(error, offsets)
+      }.toMap
+
+      topicName -> partitions
+    }.toMap
 
     OffsetResponse(correlationId, results)
   }
@@ -162,7 +170,7 @@ object ResponseDecoder {
       val host = buf.decodeString()
       val port = buf.decodeInt32()
 
-      KafkaBroker(nodeId, host, port)
+      Broker(nodeId, host, port)
     }
     val toBroker = brokers.map(b => (b.nodeId, b)).toMap // nodeId to Broker
 
@@ -201,13 +209,15 @@ object ResponseDecoder {
       val topicName = buf.decodeString()
 
       // [Partition ErrorCode [Offset]]
-      buf.decodeArray {
+      val partitions = buf.decodeArray {
         val partition = buf.decodeInt32()
         val error: KafkaError = buf.decodeInt16()
 
-        OffsetCommitResult(TopicPartition(topicName, partition), error)
-      }
-    }.flatten
+        partition -> OffsetCommitResult(error)
+      }.toMap
+
+      topicName -> partitions
+    }.toMap
 
     OffsetCommitResponse(correlationId, clientId, results)
   }
@@ -225,15 +235,17 @@ object ResponseDecoder {
       val topicName = buf.decodeString()
 
       // [Partition ErrorCode [Offset]]
-      buf.decodeArray {
+      val partitions = buf.decodeArray {
         val partition = buf.decodeInt32()
         val offset = buf.decodeInt64()
         val metadata = buf.decodeString()
         val error: KafkaError = buf.decodeInt16()
 
-        OffsetFetchResult(TopicPartition(topicName, partition), offset, metadata, error)
-      }
-    }.flatten
+        partition -> OffsetFetchResult(offset, metadata, error)
+      }.toMap
+
+      topicName -> partitions
+    }.toMap
 
     OffsetFetchResponse(correlationId, clientId, results)
   }

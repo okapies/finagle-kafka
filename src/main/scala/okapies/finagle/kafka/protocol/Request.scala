@@ -24,27 +24,13 @@ object Request {
 
 // ProduceRequest
 case class ProduceRequest(
-  correlationId: Int,  // int32
-  clientId: String,    // string
-  requiredAcks: Short, // int16
-  timeout: Int,        // int32 (msecs)
-  partitions: Seq[ProduceRequestPartition] // [TopicName [Partition MessageSetSize MessageSet]]
+  correlationId: Int,         // int32
+  clientId: String,           // string
+  requiredAcks: RequiredAcks, // int16
+  timeout: Int,               // int32 (msecs)
+  messageSets: Map[String, Map[Int, Seq[Message]]]
+    // [TopicName [Partition MessageSetSize MessageSet]]
 ) extends Request
-
-case class ProduceRequestPartition(
-  topicPartition: TopicPartition,
-  messages: Seq[Message]
-)
-
-sealed abstract class RequiredAcks(val acks: Short)
-
-case object WaitAllReplicas extends RequiredAcks(-1)
-
-case object NoWaitAcks extends RequiredAcks(0)
-
-case object WaitLeader extends RequiredAcks(1)
-
-case class WaitReplicas(_acks: Short) extends RequiredAcks(_acks)
 
 // FetchRequest
 case class FetchRequest(
@@ -53,11 +39,11 @@ case class FetchRequest(
   replicaId: Int,     // int32
   maxWaitTime: Int,   // int32 (msecs)
   minBytes: Int,      // int32
-  partitions: Seq[FetchRequestPartition] // [TopicName [Partition FetchOffset MaxBytes]
+  topicPartitions: Map[String, Map[Int, FetchOffset]]
+    // [TopicName [Partition FetchOffset MaxBytes]
 ) extends Request
 
-case class FetchRequestPartition(
-  topicPartition: TopicPartition,
+case class FetchOffset(
   offset: Long, // int64
   maxBytes: Int // int32
 )
@@ -67,11 +53,11 @@ case class OffsetRequest(
   correlationId: Int, // int32
   clientId: String,   // string
   replicaId: Int,     // int32
-  partitions: Seq[OffsetRequestPartition] // [TopicName [Partition Time MaxNumberOfOffsets]]
+  topicPartitions: Map[String, Map[Int, OffsetFilter]]
+    // [TopicName [Partition Time MaxNumberOfOffsets]]
 ) extends Request
 
-case class OffsetRequestPartition(
-  topicPartition: TopicPartition,
+case class OffsetFilter(
   time: Long,             // int64 (msecs)
   maxNumberOfOffsets: Int // int32
 )
@@ -88,11 +74,10 @@ case class OffsetCommitRequest(
   correlationId: Int,    // int32
   clientId: String,      // string
   consumerGroup: String, // string
-  partitions: Seq[OffsetCommitRequestPartition]
+  commits: Map[String, Map[Int, CommitOffset]]
 ) extends Request
 
-case class OffsetCommitRequestPartition(
-  topicPartition: TopicPartition,
+case class CommitOffset(
   offset: Long,    // int64
   metadata: String // string
 )
@@ -102,5 +87,5 @@ case class OffsetFetchRequest(
   correlationId: Int,    // int32
   clientId: String,      // string
   consumerGroup: String, // string
-  partitions: Seq[TopicPartition]
+  partitions: Map[String, Seq[Int]]
 ) extends Request

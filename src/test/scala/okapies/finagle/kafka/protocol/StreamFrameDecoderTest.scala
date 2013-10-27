@@ -13,7 +13,7 @@ import okapies.finagle.kafka.util.GatheringByteChannelMock
 import org.scalatest._
 import org.scalatest.matchers._
 
-class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
+class StreamFrameDecoderTest extends FlatSpec with ShouldMatchers {
 
   import kafka.api.{
     FetchResponse => KafkaFetchResponse,
@@ -27,11 +27,11 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
   import Spec._
   import util.Helper._
 
-  behavior of "A KafkaFrameDecoder"
+  behavior of "A StreamFrameDecoder"
 
   it should "decode the received ProduceResponse into a ResponseFrame" in {
-    val embedder = new DecoderEmbedder[KafkaFrame](
-      new KafkaFrameDecoder(_ => Some(ApiKeyProduce), 1024)
+    val embedder = new DecoderEmbedder[ResponseFrame](
+      new StreamFrameDecoder(_ => Some(ApiKeyProduce), 1024)
     )
     val headerLength = 4 /* Size */ + 4 /* CorrelationId */
 
@@ -39,8 +39,7 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
     for (i <- 0 to 1) {
       val buf1 = createProduceResponseAsChannelBuffer(i)
       embedder.offer(buf1.duplicate())
-      val ResponseFrame(apiKey1, correlationId1, frame1) =
-        embedder.poll().asInstanceOf[ResponseFrame]
+      val BufferResponseFrame(apiKey1, correlationId1, frame1) = embedder.poll()
 
       assert(apiKey1 === ApiKeyProduce)
 
@@ -50,79 +49,75 @@ class KafkaFrameDecoderTest extends FlatSpec with ShouldMatchers {
     }
   }
 
-  it should "decode the received FetchResponse into a ResponseFrame and subsequent MessageFrames" in {
-    val embedder = new DecoderEmbedder[KafkaFrame](
-      new KafkaFrameDecoder(_ => Some(ApiKeyFetch), 1024)
+  it should "decode the received FetchResponse into a ResponseFrame" in {
+    val embedder = new DecoderEmbedder[ResponseFrame](
+      new StreamFrameDecoder(_ => Some(ApiKeyFetch), 1024)
     )
 
     // do multiple times to detect state init failure
     for (i <- 0 to 1) {
       val buf1 = createFetchResponseAsChannelBuffer(i)
       embedder.offer(buf1.duplicate())
-      val ResponseFrame(apiKey1, correlationId1, frame1) =
-        embedder.poll().asInstanceOf[ResponseFrame]
-
-      assert(apiKey1 === ApiKeyFetch)
+      val FetchResponseFrame(correlationId1) = embedder.poll()
 
       assert(correlationId1 === i)
-      assert(frame1 === ChannelBuffers.EMPTY_BUFFER)
 
       // 1st partition in the response
-      val PartitionFrame(topicPartition1, errorCode1, highwaterMarkOffset1) =
-        embedder.poll().asInstanceOf[PartitionFrame]
-      assert(topicPartition1 === TopicPartition("test-topic2", 3 + i))
-      assert(errorCode1 === 2)
+      val PartitionStatus(topicName1, partition1, error1, highwaterMarkOffset1) = embedder.poll()
+      assert(topicName1 === "test-topic2")
+      assert(partition1 === 3 + i)
+      assert(error1.code === 2)
       assert(highwaterMarkOffset1 === 2 + i)
 
       // 1st message in the response
-      val MessageFrame(topicPartition11, offset11, frame11) =
-        embedder.poll().asInstanceOf[MessageFrame]
-      assert(topicPartition11 === TopicPartition("test-topic2", 3 + i))
+      val FetchedMessage(topicName11, partition11, offset11, msg11) = embedder.poll()
+      assert(topicName11 === "test-topic2")
+      assert(partition11 === 3 + i)
       assert(offset11 === 0)
-      assert(new String(getMessageValue(frame11), utf8) === "hello")
+      assert(new String(getMessageValue(msg11), utf8) === "hello")
 
       // 2nd message in the response
-      val MessageFrame(topicPartition12, offset12, frame12) =
-        embedder.poll().asInstanceOf[MessageFrame]
-      assert(topicPartition12 === TopicPartition("test-topic2", 3 + i))
+      val FetchedMessage(topicName12, partition12, offset12, msg12) = embedder.poll()
+      assert(topicName12 === "test-topic2")
+      assert(partition12 === 3 + i)
       assert(offset12 === 1)
-      assert(new String(getMessageValue(frame12), utf8) === "world")
+      assert(new String(getMessageValue(msg12), utf8) === "world")
 
       // 2nd partition in the response
-      val PartitionFrame(topicPartition2, errorCode2, highwaterMarkOffset2) =
-        embedder.poll().asInstanceOf[PartitionFrame]
-      assert(topicPartition2 === TopicPartition("test-topic1", 1 + i))
-      assert(errorCode2 === 1)
+      val PartitionStatus(topicName2, partition2, error2, highwaterMarkOffset2) = embedder.poll()
+      assert(topicName2 === "test-topic1")
+      assert(partition2 === 1 + i)
+      assert(error2.code === 1)
       assert(highwaterMarkOffset2 === 1 + i)
 
       // 3rd message in the response
-      val MessageFrame(topicPartition21, offset21, frame21) =
-        embedder.poll().asInstanceOf[MessageFrame]
-      assert(topicPartition21 === TopicPartition("test-topic1", 1 + i))
+      val FetchedMessage(topicName21, partition21, offset21, msg21) = embedder.poll()
+      assert(topicName21 === "test-topic1")
+      assert(partition21 === 1 + i)
       assert(offset21 === 0)
-      assert(new String(getMessageValue(frame21), utf8) === "welcome")
+      assert(new String(getMessageValue(msg21), utf8) === "welcome")
 
       // 3rd partition in the response
-      val PartitionFrame(topicPartition3, errorCode3, highwaterMarkOffset3) =
-        embedder.poll().asInstanceOf[PartitionFrame]
-      assert(topicPartition3 === TopicPartition("test-topic1", 2 + i))
-      assert(errorCode3 === 1)
+      val PartitionStatus(topicName3, partition3, error3, highwaterMarkOffset3) = embedder.poll()
+      assert(topicName3 === "test-topic1")
+      assert(partition3 === 2 + i)
+      assert(error3.code === 1)
       assert(highwaterMarkOffset3 === 1 + i)
 
       // 4th message in the response
-      val MessageFrame(topicPartition31, offset31, frame31) =
-        embedder.poll().asInstanceOf[MessageFrame]
-      assert(topicPartition31 === TopicPartition("test-topic1", 2 + i))
+      val FetchedMessage(topicName31, partition31, offset31, msg31) = embedder.poll()
+      assert(topicName31 === "test-topic1")
+      assert(partition31 === 2 + i)
       assert(offset31 === 0)
-      assert(new String(getMessageValue(frame31), utf8) === "welcome")
+      assert(new String(getMessageValue(msg31), utf8) === "welcome")
 
       val msg6 = embedder.poll()
       assert(msg6 === NilMessageFrame)
     }
   }
 
-  private[this] def getMessageValue(frame: ChannelBuffer): Array[Byte] = {
-    val payload = new KafkaMessage(frame.toByteBuffer).payload
+  private[this] def getMessageValue(msg: Message): Array[Byte] = {
+    val payload = new KafkaMessage(msg.underlying.toByteBuffer).payload
     val value = new Array[Byte](payload.limit)
     payload.get(value)
 

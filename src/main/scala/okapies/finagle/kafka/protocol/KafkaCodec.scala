@@ -77,7 +77,7 @@ object KafkaStreamClientPipelineFactory extends ChannelPipelineFactory {
     pipeline.addLast("requestEncoder", new RequestEncoder(selector))
 
     // decoders (upstream)
-    pipeline.addLast("frameDecoder", new KafkaFrameDecoder(selector, 8192))
+    pipeline.addLast("frameDecoder", new StreamFrameDecoder(selector, 8192))
     pipeline.addLast("responseDecoder", new StreamResponseDecoder)
 
     pipeline
