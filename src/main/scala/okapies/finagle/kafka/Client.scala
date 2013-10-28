@@ -88,7 +88,7 @@ class Client(
       case OffsetResponse(_, results) => Future.value(results)
     }
 
-  def metadata(): Future[Seq[TopicMetadata]] = metadata(Array.empty:_*)
+  def metadata(): Future[Seq[TopicMetadata]] = metadata(Array.empty[String]:_*)
 
   def metadata(topicNames: String*): Future[Seq[TopicMetadata]] =
     doRequest(MetadataRequest(
