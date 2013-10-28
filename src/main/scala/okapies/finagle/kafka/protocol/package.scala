@@ -15,6 +15,11 @@ package object protocol {
   implicit def asMessage(value: String): Message =
     Message.create(ChannelBuffers.wrappedBuffer(value.getBytes(Spec.DefaultCharset)))
 
+  implicit def asMessage(entry: (String, String)): Message =
+    Message.create(
+      ChannelBuffers.wrappedBuffer(entry._2.getBytes(Spec.DefaultCharset)),
+      Option(ChannelBuffers.wrappedBuffer(entry._1.getBytes(Spec.DefaultCharset))))
+
   implicit def asKafkaError(code: Short): KafkaError = KafkaError(code)
 
 }
