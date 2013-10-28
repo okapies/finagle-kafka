@@ -34,7 +34,7 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
           case req: OffsetFetchRequest => encodeOffsetFetchRequest(req)
         }
 
-        logger.append(req)
+        logger.add(req)
 
         val future = e.getFuture
         future.addListener(new ChannelFutureListener {

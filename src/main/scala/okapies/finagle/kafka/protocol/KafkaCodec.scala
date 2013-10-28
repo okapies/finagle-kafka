@@ -1,6 +1,6 @@
 package okapies.finagle.kafka.protocol
 
-import java.util.concurrent.ConcurrentHashMap
+import scala.collection._
 
 import org.jboss.netty.channel.{ChannelPipelineFactory, Channels}
 import org.jboss.netty.handler.codec.frame.{LengthFieldPrepender, LengthFieldBasedFrameDecoder}
@@ -9,9 +9,64 @@ import com.twitter.finagle._
 import com.twitter.finagle.stats.{NullStatsReceiver, StatsReceiver}
 
 object KafkaCodec {
+
   def apply() = new KafkaCodecFactory()
+
   def apply(stats: StatsReceiver = NullStatsReceiver) = new KafkaCodecFactory(stats)
+
   def get() = apply()
+
+}
+
+trait RequestCorrelator extends (Int => Option[Short])
+
+object RequestCorrelator {
+
+  def apply(f: Int => Option[Short]) = new RequestCorrelator {
+    def apply(correlationId: Int): Option[Short] = f(correlationId)
+  }
+
+}
+
+trait RequestLogger {
+
+  def add(req: Request): Unit
+
+  def remove(req: Request): Unit
+
+}
+
+class QueueRequestCorrelator extends RequestCorrelator with RequestLogger {
+
+  private[this] val queue = new mutable.Queue[Short]
+
+  def apply(correlationId: Int) = queue.isEmpty match {
+    case false => Some(queue.dequeue())
+    case true => None
+  }
+
+  def add(req: Request) = queue += Request.toApiKey(req)
+
+  def remove(req: Request) = queue.isEmpty match {
+    case false => queue.dequeue()
+    case true =>
+  }
+
+}
+
+class CorrelationIdRequestCorrelator extends RequestCorrelator with RequestLogger {
+
+  private[this] val requests = new mutable.HashMap[Int, Short]
+
+  def apply(correlationId: Int) = requests.remove(correlationId)
+
+  def add(req: Request) {
+    requests.put(req.correlationId, Request.toApiKey(req))
+    // TODO: handle duplicate correlationId
+  }
+
+  def remove(req: Request) = requests.remove(req.correlationId)
+
 }
 
 class KafkaServerPipelineFactory extends ChannelPipelineFactory {
@@ -22,66 +77,44 @@ class KafkaServerPipelineFactory extends ChannelPipelineFactory {
   }
 }
 
-private[protocol] trait RequestLogger {
-
-  def append(req: Request): Unit
-
-  def remove(req: Request): Unit
-
-}
-
-private[protocol] class CorrelationBasedSelector
-  extends (Int => Option[Short]) with RequestLogger {
-
-  private[this] val requests = new ConcurrentHashMap[Int, Short]
-
-  def apply(correlationId: Int) = Option(requests.remove(correlationId))
-
-  def append(req: Request) {
-    requests.putIfAbsent(req.correlationId, Request.toApiKey(req))
-    // TODO: handle duplicate correlationId
-  }
-
-  def remove(req: Request) {
-    requests.remove(req.correlationId)
-  }
-
-}
-
 object KafkaBatchClientPipelineFactory extends ChannelPipelineFactory {
+
   def getPipeline() = {
     val pipeline = Channels.pipeline()
 
-    val selector = new CorrelationBasedSelector
+    val correlator = new QueueRequestCorrelator
 
     // encoders (downstream)
     pipeline.addLast("frameEncoder", new LengthFieldPrepender(4))
-    pipeline.addLast("requestEncoder", new RequestEncoder(selector))
+    pipeline.addLast("requestEncoder", new RequestEncoder(correlator))
 
     // decoders (upstream)
     pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(8192, 0, 4, 0, 4))
-    pipeline.addLast("responseDecoder", new BatchResponseDecoder(selector))
+    pipeline.addLast("responseDecoder", new BatchResponseDecoder(correlator))
 
     pipeline
   }
+
 }
 
 object KafkaStreamClientPipelineFactory extends ChannelPipelineFactory {
+
   def getPipeline() = {
     val pipeline = Channels.pipeline()
 
-    val selector = new CorrelationBasedSelector
+    val correlator = new QueueRequestCorrelator
 
     // encoders (downstream)
     pipeline.addLast("frameEncoder", new LengthFieldPrepender(4))
-    pipeline.addLast("requestEncoder", new RequestEncoder(selector))
+    pipeline.addLast("requestEncoder", new RequestEncoder(correlator))
 
     // decoders (upstream)
-    pipeline.addLast("frameDecoder", new StreamFrameDecoder(selector, 8192))
+    pipeline.addLast("frameDecoder", new StreamFrameDecoder(correlator, 8192))
     pipeline.addLast("responseDecoder", new StreamResponseDecoder)
 
     pipeline
   }
+
 }
 
 class KafkaCodecFactory(stats: StatsReceiver) extends CodecFactory[Request, Response] {

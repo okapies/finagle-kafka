@@ -31,7 +31,7 @@ class StreamFrameDecoderTest extends FlatSpec with ShouldMatchers {
 
   it should "decode the received ProduceResponse into a ResponseFrame" in {
     val embedder = new DecoderEmbedder[ResponseFrame](
-      new StreamFrameDecoder(_ => Some(ApiKeyProduce), 1024)
+      new StreamFrameDecoder(RequestCorrelator(_ => Some(ApiKeyProduce)), 1024)
     )
     val headerLength = 4 /* Size */ + 4 /* CorrelationId */
 
@@ -51,7 +51,7 @@ class StreamFrameDecoderTest extends FlatSpec with ShouldMatchers {
 
   it should "decode the received FetchResponse into a ResponseFrame" in {
     val embedder = new DecoderEmbedder[ResponseFrame](
-      new StreamFrameDecoder(_ => Some(ApiKeyFetch), 1024)
+      new StreamFrameDecoder(RequestCorrelator(_ => Some(ApiKeyFetch)), 1024)
     )
 
     // do multiple times to detect state init failure

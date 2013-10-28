@@ -4,7 +4,7 @@ import org.jboss.netty.buffer.ChannelBuffer
 import org.jboss.netty.channel.{Channel, ChannelHandlerContext}
 import org.jboss.netty.handler.codec.oneone.{OneToOneEncoder, OneToOneDecoder}
 
-class BatchResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecoder {
+class BatchResponseDecoder(correlator: RequestCorrelator) extends OneToOneDecoder {
 
   import ResponseDecoder._
   import Spec._
@@ -13,7 +13,7 @@ class BatchResponseDecoder(selector: Int => Option[Short]) extends OneToOneDecod
     case frame: ChannelBuffer =>
       // Note: MessageSize field must be discarded by previous frame decoder.
       val correlationId = frame.decodeInt32()
-      selector(correlationId).flatMap { apiKey =>
+      correlator(correlationId).flatMap { apiKey =>
         Option(decodeResponse(apiKey, correlationId, frame))
       }.getOrElse(msg)
     case _ => msg // fall through

@@ -10,7 +10,7 @@ import Spec._
 import KafkaFrameDecoderState._
 
 class StreamFrameDecoder(
-  apiKeyByReq: (Int32 => Option[Int16]),
+  correlator: RequestCorrelator,
   maxFrameLength: Int
 ) extends ReplayingDecoder[KafkaFrameDecoderState](READ_HEADER, true /* unfold */) {
 
@@ -50,7 +50,7 @@ class StreamFrameDecoder(
       size = buffer.decodeInt32()          // int32
       val correlationId = buffer.decodeInt32() // int32
 
-      apiKeyByReq(correlationId) match {
+      correlator(correlationId) match {
         case Some(ApiKeyFetch) =>
           readSize = CorrelationIdLength
           checkpoint(READ_TOPIC_COUNT)
