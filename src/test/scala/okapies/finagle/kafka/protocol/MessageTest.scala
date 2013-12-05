@@ -6,7 +6,7 @@ import org.scalatest.matchers._
 
 import org.jboss.netty.buffer.ChannelBuffers
 
-class MessageTest extends FlatSpec with ShouldMatchers {
+class MessageTest extends FlatSpec with Matchers {
 
   import kafka.message.{
     Message => KafkaMessage,

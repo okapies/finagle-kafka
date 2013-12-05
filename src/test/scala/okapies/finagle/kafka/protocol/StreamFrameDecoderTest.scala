@@ -13,7 +13,7 @@ import okapies.finagle.kafka.util.GatheringByteChannelMock
 import org.scalatest._
 import org.scalatest.matchers._
 
-class StreamFrameDecoderTest extends FlatSpec with ShouldMatchers {
+class StreamFrameDecoderTest extends FlatSpec with Matchers {
 
   import kafka.api.{
     FetchResponse => KafkaFetchResponse,

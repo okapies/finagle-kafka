@@ -40,16 +40,12 @@ private[protocol] object Spec {
    * Implicit conversions
    */
 
-  // TODO: Use implicit value class in Scala 2.10
-  //import scala.language.implicitConversions
-
-  implicit def asKafkaChannelBuffer(buf: ChannelBuffer) = new KafkaChannelBuffer(buf)
+  import scala.language.implicitConversions
 
   /**
    * The wrapper of ChannelBuffer that provides helper methods for Kafka protocol.
    */
-  //private[protocol] implicit class KafkaChannelBuffer(val buf: ChannelBuffer) extends AnyVal {
-  class KafkaChannelBuffer(val buf: ChannelBuffer) {
+  private[protocol] implicit class KafkaChannelBuffer(val buf: ChannelBuffer) extends AnyVal {
 
     /*
      * Methods for encoding value and writing into buffer.

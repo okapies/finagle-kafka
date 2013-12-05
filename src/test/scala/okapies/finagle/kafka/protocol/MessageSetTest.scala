@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import org.jboss.netty.buffer.ChannelBuffers
 
-class MessageSetTest extends FlatSpec with ShouldMatchers {
+class MessageSetTest extends FlatSpec with Matchers {
 
   import kafka.message.{
     ByteBufferMessageSet,
@@ -47,12 +47,12 @@ class MessageSetTest extends FlatSpec with ShouldMatchers {
       new ByteBufferMessageSet(buf1.toByteBuffer(4, size1 - 4)) // skip MessageSetSize
     val it1 = kafkaMsgs1.iterator
 
-    val msg1 = it1.next
+    val msg1 = it1.next()
     assert(msg1.offset === 1)
     assert(msg1.message.key.asString === "key1")
     assert(msg1.message.payload.asString === "value1")
 
-    val msg2 = it1.next
+    val msg2 = it1.next()
     assert(msg2.offset === 2)
     assert(msg2.message.key.asString === "key2")
     assert(msg2.message.payload.asString === "value2")

@@ -7,6 +7,8 @@ import java.nio.charset.Charset
 
 object Helper {
 
+  import scala.language.implicitConversions
+
   val utf8 = Charset.forName("UTF-8")
 
   implicit def asByteBufferOps(buf: ByteBuffer) = new ByteBufferOps(buf)
