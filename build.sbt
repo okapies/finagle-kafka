@@ -13,7 +13,7 @@ resolvers ++= List(
 )
 
 libraryDependencies ++= List(
-  "com.twitter" % "finagle-core_2.10" % "6.8.1",
+  "com.twitter" % "finagle-core_2.10" % "6.10.0",
   "org.apache.kafka" % "kafka_2.10" % "0.8.0"
     exclude("com.sun.jmx", "jmxri")
     exclude("com.sun.jdmk", "jmxtools")
