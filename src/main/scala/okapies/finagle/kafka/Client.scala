@@ -42,19 +42,21 @@ class Client(
 
   def fetch(topicName: String,
             partition: Int,
-            offset: Long): Future[StreamFetchResponse] =
+            offset: Long): Future[FetchResult] =
     fetch(topicName, partition, offset, Int.MaxValue)
 
   def fetch(topicName: String,
             partition: Int,
             offset: Long,
-            maxBytes: Int): Future[StreamFetchResponse] =
-    fetch(Map(topicName -> Map(partition -> FetchOffset(offset, maxBytes))))
+            maxBytes: Int): Future[FetchResult] =
+    fetch(Map(topicName -> Map(partition -> FetchOffset(offset, maxBytes)))).map {
+      _.results(topicName)(partition)
+    }
 
   def fetch(partitions: Map[String, Map[Int, FetchOffset]],
             minBytes: Int = 0,
             maxWaitTime: Duration = Duration.Top,
-            replicaId: Int = -1): Future[StreamFetchResponse] =
+            replicaId: Int = -1): Future[FetchResponse] =
     doRequest(FetchRequest(
         nextCorrelationId(),
         clientId,
@@ -62,7 +64,8 @@ class Client(
         maxWaitTime.inMilliseconds.toInt,
         minBytes,
         partitions)) {
-      case res: StreamFetchResponse => Future.value(res)
+      case res: FetchResponse => Future.value(res)
+//      case res: StreamFetchResponse => Future.value(res)
     }
 
   def offset(topicName: String, partition: Int): Future[OffsetResult] =

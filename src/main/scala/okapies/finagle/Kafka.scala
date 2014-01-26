@@ -7,7 +7,7 @@ import com.twitter.finagle.netty3.Netty3Transporter
 import com.twitter.finagle.pool.ReusingPool
 import com.twitter.finagle.stats.StatsReceiver
 
-import okapies.finagle.kafka.protocol.{KafkaStreamClientPipelineFactory, Request, Response}
+import okapies.finagle.kafka.protocol.{KafkaBatchClientPipelineFactory, KafkaStreamClientPipelineFactory, Request, Response}
 
 trait KafkaRichClient { self: Client[Request, Response] =>
 
@@ -19,7 +19,7 @@ trait KafkaRichClient { self: Client[Request, Response] =>
 
 object KafkaTransporter extends Netty3Transporter[Request, Response](
   name = "kafka",
-  pipelineFactory = KafkaStreamClientPipelineFactory
+  pipelineFactory = KafkaBatchClientPipelineFactory
 )
 
 object KafkaClient extends DefaultClient[Request, Response](
