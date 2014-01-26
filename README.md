@@ -4,7 +4,6 @@ finagle-kafka
 An Apache Kafka client in Netty and Finagle.
 
 ## Overview
-
 *finagle-kafka* is an [Apache Kafka](https://kafka.apache.org/) client in [Netty](http://netty.io/)
 and [Twitter's Finagle](http://twitter.github.io/finagle/). It enables you to handle Kafka in more
 functional and composable way based on [Futures](http://twitter.github.io/finagle/guide/Futures.html).
@@ -14,8 +13,16 @@ retries and bunch of statistics for monitoring and diagnostics.*
 
 **Your feedbacks and contributions are welcome!**
 
-## Usage
+## Build
+```
+$ git clone https://github.com/okapies/finagle-kafka.git
+$ cd finagle-kafka
+$ sbt package
+```
 
+Hosting on maven repository is not ready at this time (available within days).
+
+## Usage
 ```
 import com.twitter.util.Future
 import okapies.finagle._
@@ -47,7 +54,6 @@ msgs.foreach(_.foreach(println))
 ```
 
 ## Future work
-
 - Compression support
 - Partitioning and Zookeeper support
 - Migration to Netty 4/5 and Finagle 7
