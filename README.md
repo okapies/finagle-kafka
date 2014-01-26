@@ -3,6 +3,17 @@ finagle-kafka
 
 An Apache Kafka client in Netty and Finagle.
 
+## Overview
+
+*finagle-kafka* is an [Apache Kafka](https://kafka.apache.org/) client in [Netty](http://netty.io/)
+and [Twitter's Finagle](http://twitter.github.io/finagle/). It enables you to handle Kafka in more
+functional and composable way based on [Futures](http://twitter.github.io/finagle/guide/Futures.html).
+
+You can also utilize excellent features of Finagle: *load balancing, connection pooling, timeouts,
+retries and bunch of statistics for monitoring and diagnostics.*
+
+**Your feedbacks and contributions are welcome!**
+
 ## Usage
 
 ```
@@ -34,3 +45,11 @@ val msgs = client.flatMap {
 }
 msgs.foreach(_.foreach(println))
 ```
+
+## Future work
+
+- Compression support
+- Partitioning and Zookeeper support
+- Migration to Netty 4/5 and Finagle 7
+- More high-level and sophisticated `KafkaClient`
+- Compatibility test
