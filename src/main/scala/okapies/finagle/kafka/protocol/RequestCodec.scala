@@ -150,6 +150,7 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
 
   /**
    * Not implemented in Kafka 0.8. See KAFKA-993
+   * Implemented in Kafka 0.8.1
    *
    * {{{
    * OffsetCommitRequest => ConsumerGroup [TopicName [Partition Offset Metadata]]
@@ -175,6 +176,7 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
 
   /**
    * Not implemented in Kafka 0.8. See KAFKA-993
+   * Implemented in Kafka 0.8.1
    *
    * {{{
    * OffsetFetchRequest => ConsumerGroup [TopicName [Partition]]

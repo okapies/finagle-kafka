@@ -83,7 +83,6 @@ case class PartitionMetadata(
 // OffsetCommitReponse
 case class OffsetCommitResponse(
   correlationId: Int, // int32
-  clientId: String,   // string
   results: Map[String, Map[Int, OffsetCommitResult]]
 ) extends Response
 
@@ -94,7 +93,6 @@ case class OffsetCommitResult(
 // OffsetFetchResponse
 case class OffsetFetchResponse(
   correlationId: Int, // int32
-  clientId: String,   // string
   results: Map[String, Map[Int, OffsetFetchResult]]
 ) extends Response
 

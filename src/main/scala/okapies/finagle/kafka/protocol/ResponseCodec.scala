@@ -198,13 +198,13 @@ object ResponseDecoder {
 
   /**
    * Not implemented in Kafka 0.8. See KAFKA-993
+   * Implemented in Kafka 0.8.1
    *
    * {{{
-   * OffsetCommitResponse => ClientId [TopicName [Partition ErrorCode]]]
+   * OffsetCommitResponse => [TopicName [Partition ErrorCode]]]
    * }}}
    */
   private[this] def decodeOffsetCommitResponse(correlationId: Int, buf: ChannelBuffer) = {
-    val clientId = buf.decodeString()
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -219,18 +219,18 @@ object ResponseDecoder {
       topicName -> partitions
     }.toMap
 
-    OffsetCommitResponse(correlationId, clientId, results)
+    OffsetCommitResponse(correlationId, results)
   }
 
   /**
    * Not implemented in Kafka 0.8. See KAFKA-993
+   * Implemented in Kafka 0.8.1
    *
    * {{{
-   * OffsetFetchResponse => ClientId [TopicName [Partition Offset Metadata ErrorCode]]
+   * OffsetFetchResponse => [TopicName [Partition Offset Metadata ErrorCode]]
    * }}}
    */
   private[this] def decodeOffsetFetchResponse(correlationId: Int, buf: ChannelBuffer) = {
-    val clientId = buf.decodeString()
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -247,7 +247,7 @@ object ResponseDecoder {
       topicName -> partitions
     }.toMap
 
-    OffsetFetchResponse(correlationId, clientId, results)
+    OffsetFetchResponse(correlationId, results)
   }
 
 }
