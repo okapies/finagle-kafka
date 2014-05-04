@@ -53,6 +53,21 @@ val msgs = client.flatMap {
 msgs.foreach(_.foreach(println))
 ```
 
+## Running tests
+
+Requires a running kafka and zookeeper on default ports and to add the following
+to the kafka config (config/server.properties):
+
+```
+delete.topic.enable=true
+```
+
+Tests are run using sbt.
+
+```
+sbt test
+```
+
 ## Future work
 - Compression support
 - Partitioning and Zookeeper support
