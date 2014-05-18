@@ -1,5 +1,4 @@
 package okapies.finagle.kafka 
-package test
 
 import org.scalatest._
 import org.scalatest.matchers._
@@ -9,11 +8,10 @@ import java.nio.charset.Charset
 
 import com.twitter.util.Await
 import kafka.admin.AdminUtils
-import kafka.log.LogConfig
 import kafka.utils.{Utils, TestUtils, ZKStringSerializer}
 import kafka.server.{KafkaConfig, KafkaServer}
 import org.apache.curator.test.TestingServer
-import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
+import org.jboss.netty.buffer.ChannelBuffers
 import org.I0Itec.zkclient.ZkClient
 
 import okapies.finagle.Kafka
@@ -27,9 +25,7 @@ object ClientTestUtils {
   }
 }
 
-trait KafkaTest
-extends BeforeAndAfterAll {
-  suite: Suite =>
+trait KafkaTest extends BeforeAndAfterAll { suite: Suite =>
 
   var zkServer: TestingServer = _
   var zkClient: ZkClient = _
@@ -51,19 +47,19 @@ extends BeforeAndAfterAll {
   }
 
   override def afterAll {
-    kafkaServer.shutdown
+    kafkaServer.shutdown()
     Utils.rm(kafkaConfig.getProperty("log.dir"))
-    zkClient.close
-    zkServer.stop
+    zkClient.close()
+    // Note:
+    // InstanceNotFoundException will be thrown in 'TestingServer' thread
+    // when stopping it. See https://github.com/Netflix/curator/issues/121
+    zkServer.stop()
     Utils.rm(zkServer.getTempDirectory)
   }
 
 }
 
-class ClientTest
-extends FlatSpec
-with Matchers
-with KafkaTest {
+class ClientTest extends FlatSpec with Matchers with KafkaTest {
   import ClientTestUtils._
   import Await.result
   import KafkaError._
