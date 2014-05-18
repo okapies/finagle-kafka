@@ -91,6 +91,42 @@ class Client(
       case OffsetResponse(_, results) => Future.value(results)
     }
 
+  def offsetCommit(consumerGroup: String,
+                   topicName: String,
+                   partition: Int,
+                   offset: Long,
+                   metadata: String = ""): Future[OffsetCommitResult] =
+    offsetCommit(consumerGroup, Map(topicName -> Map(partition ->
+      CommitOffset(offset, metadata)))).map(_.values.head.values.head)
+
+  def offsetCommit(consumerGroup: String,
+                   commits: Map[String, Map[Int, CommitOffset]]
+                   ): Future[Map[String, Map[Int, OffsetCommitResult]]] =
+    doRequest(OffsetCommitRequest(
+      nextCorrelationId(),
+      clientId,
+      consumerGroup,
+      commits)) {
+      case OffsetCommitResponse(_, results) => Future.value(results)
+    }
+
+  def offsetFetch(consumerGroup: String,
+                  topicName: String,
+                  partition: Int): Future[OffsetFetchResult] =
+    offsetFetch(consumerGroup, Map(topicName -> Seq(partition)))
+      .map(_.values.head.values.head)
+
+  def offsetFetch(consumerGroup: String,
+                  partitions: Map[String, Seq[Int]]
+                  ): Future[Map[String, Map[Int, OffsetFetchResult]]] =
+    doRequest(OffsetFetchRequest(
+      nextCorrelationId(),
+      clientId,
+      consumerGroup,
+      partitions)) {
+      case OffsetFetchResponse(_, results) => Future.value(results)
+    }
+
   def metadata(): Future[Seq[TopicMetadata]] = metadata(Array.empty[String]:_*)
 
   def metadata(topicNames: String*): Future[Seq[TopicMetadata]] =

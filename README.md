@@ -53,6 +53,31 @@ val msgs = client.flatMap {
 msgs.foreach(_.foreach(println))
 ```
 
+## Running tests
+
+The tests require Kafka TestUtils which are currently not distributed
+using Maven. The test jar is built directly from Kafka source.
+
+```
+git clone https://github.com/apache/kafka.git
+cd kafka
+git fetch
+git checkout 0.8.1
+./gradlew -PscalaVersion=2.10.4 testJar
+```
+
+Copy the test-jar to the lib dir in the finagle-kafka project.
+
+```
+cp kafka/core/build/libs/kafka_2.10-test-0.8.1.1.jar finagle-kafka/lib/
+```
+
+Tests are run using sbt.
+
+```
+sbt test
+```
+
 ## Future work
 - Compression support
 - Partitioning and Zookeeper support
