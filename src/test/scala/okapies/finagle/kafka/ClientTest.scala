@@ -10,13 +10,16 @@ import java.nio.charset.Charset
 import com.twitter.util.Await
 import kafka.admin.AdminUtils
 import kafka.log.LogConfig
-import kafka.utils.ZKStringSerializer
+import kafka.utils.{Utils, TestUtils, ZKStringSerializer}
+import kafka.server.{KafkaConfig, KafkaServer}
+import org.apache.curator.test.TestingServer
 import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
 import org.I0Itec.zkclient.ZkClient
+
 import okapies.finagle.Kafka
 import okapies.finagle.kafka.protocol.{KafkaError, Message}
 
-object TestUtils {
+object ClientTestUtils {
   val UTF_8 = Charset.forName("UTF-8")
 
   implicit class CBString(s:String) {
@@ -24,36 +27,64 @@ object TestUtils {
   }
 }
 
+trait KafkaTest
+extends BeforeAndAfterAll {
+  suite: Suite =>
+
+  var zkServer: TestingServer = _
+  var zkClient: ZkClient = _
+  var kafkaServer: KafkaServer = _
+  var kafkaConn: String = _
+  var kafkaConfig: Properties = _
+
+  override def beforeAll {
+    zkServer = new TestingServer()
+
+    val zkConn = zkServer.getConnectString
+
+    kafkaConfig = TestUtils.createBrokerConfig(1)
+    kafkaConfig.put("zookeeper.connect", zkConn)
+    kafkaConn = s"""${kafkaConfig.get("host.name")}:${kafkaConfig.get("port")}"""
+    kafkaServer = TestUtils.createServer(new KafkaConfig(kafkaConfig))
+
+    zkClient = new ZkClient(zkConn, 5000, 5000, ZKStringSerializer)
+  }
+
+  override def afterAll {
+    kafkaServer.shutdown
+    Utils.rm(kafkaConfig.getProperty("log.dir"))
+    zkClient.close
+    zkServer.stop
+    Utils.rm(zkServer.getTempDirectory)
+  }
+
+}
+
 class ClientTest
 extends FlatSpec
 with Matchers
-with BeforeAndAfterAll {
-  import TestUtils._
+with KafkaTest {
+  import ClientTestUtils._
   import Await.result
   import KafkaError._
 
-  val client = Kafka.newRichClient("localhost:9092")
+  var client:Client = _
   val topic = "finagle.kafka.test.topic"
   val group = "test-group"
   val msg = Message.create("hello".cb)
 
-  def withZk(f:ZkClient => Unit) {
-    val zk = new ZkClient("localhost:2181", 5000, 5000, ZKStringSerializer)
-    f(zk)
-    zk.close
-  }
-
   override def beforeAll {
-    withZk { zk =>
-      AdminUtils.deleteTopic(zk, topic)
-      AdminUtils.createTopic(zk, topic, 1, 1, new Properties)
-    }
-  }
+    // start zookeeper and kafka
+    super.beforeAll
 
-  override def afterAll {
-    withZk { zk =>
-      AdminUtils.deleteTopic(zk, topic)
-    }
+    // init the kafka client
+    client = Kafka.newRichClient(kafkaConn)
+
+    //  create the topic for testing
+    AdminUtils.createTopic(zkClient, topic, 1, 1, new Properties)
+
+    // Make sure the topic leader is available before running tests
+    TestUtils.waitUntilLeaderIsElectedOrChanged(zkClient, topic, 0, 1000)
   }
 
   "A kafka client" should "return metadata" in {

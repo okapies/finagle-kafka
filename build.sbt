@@ -14,7 +14,7 @@ resolvers ++= List(
 
 libraryDependencies ++= List(
   "com.twitter" % "finagle-core_2.10" % "6.15.0",
-  "org.apache.kafka" % "kafka_2.10" % "0.8.1"
+  "org.apache.kafka" % "kafka_2.10" % "0.8.1.1"
     exclude("com.sun.jmx", "jmxri")
     exclude("com.sun.jdmk", "jmxtools")
     exclude("log4j", "log4j")
@@ -23,5 +23,6 @@ libraryDependencies ++= List(
   "log4j" % "log4j" % "1.2.15"
     exclude("com.sun.jmx", "jmxri")
     exclude("com.sun.jdmk", "jmxtools")
-    exclude("javax.jms", "jms")
+    exclude("javax.jms", "jms"),
+  "org.apache.curator" % "curator-test" % "2.4.2" % "test"
 )
