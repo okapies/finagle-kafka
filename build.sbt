@@ -1,5 +1,11 @@
 name := "finagle-kafka"
 
+description := "An Apache Kafka client in Netty and Finagle."
+
+organization := "com.github.okapies"
+
+organizationHomepage := Some(url("https://github.com/okapies"))
+
 version := "0.1.0-SNAPSHOT"
 
 scalaVersion := "2.10.4"
@@ -36,7 +42,7 @@ publishArtifact in Test := false
 pomIncludeRepository := { _ => false }
 
 pomExtra := (
-  <url>http://jsuereth.com/scala-arm</url>
+  <url>https://github.com/okapies/finagle-kafka</url>
     <licenses>
       <license>
         <name>The MIT License</name>
