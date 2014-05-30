@@ -13,14 +13,10 @@ retries and bunch of statistics for monitoring and diagnostics.*
 
 **Your feedbacks and contributions are welcome!**
 
-## Build
+## Setup
 ```
-$ git clone https://github.com/okapies/finagle-kafka.git
-$ cd finagle-kafka
-$ sbt package
+libraryDependencies += "com.github.okapies" % "finagle-kafka_2.10" % "0.1.0"
 ```
-
-Hosting on maven repository is not ready at this time (available within days).
 
 ## Usage
 ```
@@ -32,8 +28,9 @@ import okapies.finagle.kafka.protocol._
 val bootstrap = Kafka.newRichClient("[host]:[port]")
 
 // create a client for the leader of specific topic partition
+val metadata = bootstrap.metadata("topic")
 val client = for {
-  metadata <- bootstrap.metadata("topic")
+  metadata <- metadata
   leader <- Future.value(metadata.head.partitions(0).leader.get)
   client <- Future.value(Kafka.newRichClient(s"${leader.host}:${leader.port}"))
 } yield client
@@ -51,6 +48,13 @@ val msgs = client.flatMap {
   }
 }
 msgs.foreach(_.foreach(println))
+```
+
+## Build
+```
+$ git clone https://github.com/okapies/finagle-kafka.git
+$ cd finagle-kafka
+$ sbt package
 ```
 
 ## Running tests
