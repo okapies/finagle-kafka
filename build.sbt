@@ -13,18 +13,19 @@ scalaVersion := "2.10.4"
 net.virtualvoid.sbt.graph.Plugin.graphSettings
 
 libraryDependencies ++= List(
-  "com.twitter" % "finagle-core_2.10" % "6.15.0",
+  "com.twitter" % "finagle-core_2.10" % "6.16.0",
   "org.apache.kafka" % "kafka_2.10" % "0.8.1.1"
-    exclude("com.sun.jmx", "jmxri")
-    exclude("com.sun.jdmk", "jmxtools")
-    exclude("log4j", "log4j")
-    exclude("jline", "jline"),
-  "org.scalatest" % "scalatest_2.10" % "2.1.5" % "test",
-  "log4j" % "log4j" % "1.2.15"
-    exclude("com.sun.jmx", "jmxri")
-    exclude("com.sun.jdmk", "jmxtools")
-    exclude("javax.jms", "jms"),
-  "org.apache.curator" % "curator-test" % "2.4.2" % "test"
+    exclude("com.101tec", "zkclient")
+    exclude("com.yammer.metrics", "metrics-core")
+    exclude("net.sf.jopt-simple", "jopt-simple")
+    exclude("org.apache.zookeeper", "zookeeper")
+    exclude("org.xerial.snappy", "snappy-java"),
+  "org.scalatest" % "scalatest_2.10" % "2.1.7" % "test",
+  // dependencies for kafka-test
+  "junit" % "junit" % "4.11" % "test",
+  "org.apache.curator" % "curator-test" % "2.4.2" % "test",
+  "com.101tec" % "zkclient" % "0.4" % "test",
+  "com.yammer.metrics" % "metrics-core" % "2.2.0" % "test"
 )
 
 publishTo := {
