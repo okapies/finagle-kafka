@@ -22,7 +22,7 @@ import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
  */
 class Message(private[this] val _underlying: ChannelBuffer) {
 
-  import kafka.message.Message._
+  import Message._
 
   def size = _underlying.readableBytes
 
@@ -65,8 +65,22 @@ class Message(private[this] val _underlying: ChannelBuffer) {
 
 object Message {
 
-  import kafka.message.Message._
   import Spec._
+
+  // The offset and length of the fields
+  final val CrcOffset = 0
+  final val CrcLength = 4
+  final val MagicOffset = CrcOffset + CrcLength
+  final val MagicLength = 1
+  final val AttributesOffset = MagicOffset + MagicLength
+  final val AttributesLength = 1
+  final val KeySizeOffset = AttributesOffset + AttributesLength
+  final val KeySizeLength = 4
+  final val KeyOffset = KeySizeOffset + KeySizeLength
+  final val ValueSizeLength = 4
+
+  // Magic value
+  final val CurrentMagicValue = 0: Int8
 
   def apply(buffer: ChannelBuffer) = new Message(buffer)
 

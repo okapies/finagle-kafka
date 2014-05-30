@@ -6,7 +6,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import org.jboss.netty.buffer.ChannelBuffer
 
-import kafka.common.KafkaException
+import _root_.kafka.common.KafkaException
 
 private[protocol] object Spec {
 
@@ -32,6 +32,9 @@ private[protocol] object Spec {
   // length of fields
   final val CorrelationIdLength = 4
   final val ArraySizeLength = 4
+
+  final val OffsetLength = 8
+  final val MessageSizeLength = 4
 
   // Encoding
   final val DefaultCharset = Charset.forName("UTF-8")
@@ -162,8 +165,6 @@ private[protocol] object Spec {
      */
     @inline
     def encodeMessageSet(messages: Seq[Message])(f: Message => Unit) = {
-      import kafka.message.MessageSet._
-
       buf.encodeInt32(messages.foldLeft(0)(_ + OffsetLength + MessageSizeLength + _.size))
       messages.foreach(f)
     }

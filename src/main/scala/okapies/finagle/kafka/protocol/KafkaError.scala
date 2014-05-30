@@ -1,6 +1,6 @@
 package okapies.finagle.kafka.protocol
 
-import kafka.common.ErrorMapping
+import _root_.kafka.common.ErrorMapping
 
 case class KafkaError(code: Short /* int16 */) {
 

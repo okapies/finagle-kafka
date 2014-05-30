@@ -22,8 +22,8 @@ class StreamFrameDecoderTest extends FlatSpec with Matchers {
     ProducerResponse => KafkaProducerResponse,
     ProducerResponseStatus => KafkaProducerResponseStatus
   }
-  import kafka.common.TopicAndPartition
-  import kafka.message.{ByteBufferMessageSet, Message => KafkaMessage}
+  import _root_.kafka.common.TopicAndPartition
+  import _root_.kafka.message.{ByteBufferMessageSet, Message => KafkaMessage}
   import Spec._
   import util.Helper._
 
