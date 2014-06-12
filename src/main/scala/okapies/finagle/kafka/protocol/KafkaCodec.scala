@@ -89,7 +89,7 @@ object KafkaBatchClientPipelineFactory extends ChannelPipelineFactory {
     pipeline.addLast("requestEncoder", new RequestEncoder(correlator))
 
     // decoders (upstream)
-    pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(8192, 0, 4, 0, 4))
+    pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Int.MaxValue, 0, 4, 0, 4))
     pipeline.addLast("responseDecoder", new BatchResponseDecoder(correlator))
 
     pipeline
