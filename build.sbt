@@ -13,7 +13,7 @@ scalaVersion := "2.10.4"
 net.virtualvoid.sbt.graph.Plugin.graphSettings
 
 libraryDependencies ++= List(
-  "com.twitter" % "finagle-core_2.10" % "6.16.0",
+  "com.twitter" % "finagle-core_2.10" % "6.17.0",
   "org.apache.kafka" % "kafka_2.10" % "0.8.1.1"
     exclude("com.101tec", "zkclient")
     exclude("com.yammer.metrics", "metrics-core")
