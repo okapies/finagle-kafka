@@ -75,7 +75,9 @@ class MessageSetTest extends FlatSpec with Matchers {
     buf1.put(kafkaMsgs1.buffer)
     buf1.rewind()
 
-    val msgs1 = ChannelBuffers.wrappedBuffer(buf1).decodeMessageSet()
+    val chBuf1 = ChannelBuffers.wrappedBuffer(buf1)
+    val msgs1 = chBuf1.decodeMessageSet()
+    assert(chBuf1.readableBytes === 0)
 
     val msg11 = msgs1(0)
     assert(msg11.offset === 1)
@@ -86,6 +88,32 @@ class MessageSetTest extends FlatSpec with Matchers {
     assert(msg12.offset === 2)
     assert(msg12.message.key.get.toString(utf8) === "key2")
     assert(msg12.message.value.toString(utf8) === "value2")
+  }
+
+  it should "decode bytes including a partial message into a MessageSet" in {
+    val kafkaMsgs1 = new ByteBufferMessageSet(
+      NoCompressionCodec,
+      new AtomicLong(1),
+      new KafkaMessage("value1".getBytes(utf8), "key1".getBytes(utf8)),
+      new KafkaMessage("value2".getBytes(utf8), "key2".getBytes(utf8))
+    )
+    val size1 = kafkaMsgs1.sizeInBytes - 5 // make 2nd message partial
+    val buf1 = ByteBuffer.allocateDirect(4 /* Size */ + size1)
+    buf1.putInt(size1)
+    buf1.put(kafkaMsgs1.buffer.array, 0, size1)
+    buf1.rewind()
+
+    val chBuf1 = ChannelBuffers.wrappedBuffer(buf1)
+    val msgs1 = chBuf1.decodeMessageSet()
+    assert(chBuf1.readableBytes === 0)
+
+    val msg11 = msgs1(0)
+    assert(msg11.offset === 1)
+    assert(msg11.message.key.get.toString(utf8) === "key1")
+    assert(msg11.message.value.toString(utf8) === "value1")
+
+    // 2nd message must be ignored
+    assert(msgs1.length === 1)
   }
 
 }

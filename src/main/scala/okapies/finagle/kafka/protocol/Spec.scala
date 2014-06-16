@@ -2,11 +2,13 @@ package okapies.finagle.kafka.protocol
 
 import java.nio.charset.Charset
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
 import org.jboss.netty.buffer.ChannelBuffer
 
 import _root_.kafka.common.KafkaException
+import _root_.kafka.message.InvalidMessageException
 
 private[protocol] object Spec {
 
@@ -219,17 +221,34 @@ private[protocol] object Spec {
 
     @inline
     def decodeMessageSet(): Seq[MessageWithOffset] = {
-      val size = buf.decodeInt32()
-      val messageSetBuf = buf.readBytes(size)
+      @tailrec
+      def decodeMessages(msgSetBuf: ChannelBuffer,
+                         msgSet: ArrayBuffer[MessageWithOffset]): Seq[MessageWithOffset] = {
+        if (msgSetBuf.readableBytes < 12) {    // 12 = length(Offset+MessageSize)
+          msgSet
+        } else {
+          val offset = msgSetBuf.decodeInt64() // Offset => int64
+          val size = msgSetBuf.decodeInt32()   // MessageSize => int32
+          if (size < Message.MinHeaderSize) {
+            throw new InvalidMessageException(s"Message size is corrupted: $size")
+          }
 
-      val messages = ArrayBuffer[MessageWithOffset]()
-      while(messageSetBuf.readableBytes > 0) {
-        val offset = messageSetBuf.decodeInt64()
-        val bytes = messageSetBuf.decodeBytes()
-        messages.append(MessageWithOffset(offset, Message(bytes)))
+          if (msgSetBuf.readableBytes < size) {
+            // ignore a partial message at the end of the message set
+            msgSet
+          } else {
+            val bytes = msgSetBuf.readBytes(size) // Message
+            msgSet.append(MessageWithOffset(offset, Message(bytes)))
+
+            decodeMessages(msgSetBuf, msgSet)
+          }
+        }
       }
 
-      messages
+      val size = buf.decodeInt32()        // MessageSetSize => int32
+      val msgSetBuf = buf.readBytes(size) // MessageSet
+
+      decodeMessages(msgSetBuf, ArrayBuffer[MessageWithOffset]())
     }
 
   }

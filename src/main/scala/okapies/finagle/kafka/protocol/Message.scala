@@ -79,6 +79,9 @@ object Message {
   final val KeyOffset = KeySizeOffset + KeySizeLength
   final val ValueSizeLength = 4
 
+  final val MinHeaderSize =
+    CrcLength + MagicLength + AttributesLength + KeySizeLength + ValueSizeLength
+
   // Magic value
   final val CurrentMagicValue = 0: Int8
 
