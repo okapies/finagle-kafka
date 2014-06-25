@@ -18,8 +18,8 @@ libraryDependencies ++= List(
     exclude("com.101tec", "zkclient")
     exclude("com.yammer.metrics", "metrics-core")
     exclude("net.sf.jopt-simple", "jopt-simple")
-    exclude("org.apache.zookeeper", "zookeeper")
-    exclude("org.xerial.snappy", "snappy-java"),
+    exclude("org.apache.zookeeper", "zookeeper"),
+  "org.xerial.snappy" % "snappy-java" % "1.0.5.2",
   "org.scalatest" % "scalatest_2.10" % "2.1.7" % "test",
   // dependencies for kafka-test
   "junit" % "junit" % "4.11" % "test",
