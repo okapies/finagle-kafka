@@ -3,7 +3,7 @@ package okapies.finagle.kafka.protocol
 import java.nio.charset.Charset
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 
 import org.jboss.netty.buffer.ChannelBuffer
 
@@ -51,6 +51,8 @@ private[protocol] object Spec {
    * The wrapper of ChannelBuffer that provides helper methods for Kafka protocol.
    */
   private[protocol] implicit class KafkaChannelBuffer(val buf: ChannelBuffer) extends AnyVal {
+
+    import KafkaChannelBuffer._
 
     /*
      * Methods for encoding value and writing into buffer.
@@ -221,34 +223,44 @@ private[protocol] object Spec {
 
     @inline
     def decodeMessageSet(): Seq[MessageWithOffset] = {
-      @tailrec
-      def decodeMessages(msgSetBuf: ChannelBuffer,
-                         msgSet: ArrayBuffer[MessageWithOffset]): Seq[MessageWithOffset] = {
-        if (msgSetBuf.readableBytes < 12) {    // 12 = length(Offset+MessageSize)
-          msgSet
-        } else {
-          val offset = msgSetBuf.decodeInt64() // Offset => int64
-          val size = msgSetBuf.decodeInt32()   // MessageSize => int32
-          if (size < Message.MinHeaderSize) {
-            throw new InvalidMessageException(s"Message size is corrupted: $size")
-          }
-
-          if (msgSetBuf.readableBytes < size) {
-            // ignore a partial message at the end of the message set
-            msgSet
-          } else {
-            val bytes = msgSetBuf.readBytes(size) // Message
-            msgSet.append(MessageWithOffset(offset, Message(bytes)))
-
-            decodeMessages(msgSetBuf, msgSet)
-          }
-        }
-      }
-
       val size = buf.decodeInt32()        // MessageSetSize => int32
       val msgSetBuf = buf.readBytes(size) // MessageSet
 
-      decodeMessages(msgSetBuf, ArrayBuffer[MessageWithOffset]())
+      decodeMessageSetElementsImpl(msgSetBuf, mutable.ArrayBuffer())
+    }
+
+    @inline
+    def decodeMessageSetElements(): Seq[MessageWithOffset] =
+      decodeMessageSetElementsImpl(buf, mutable.ArrayBuffer())
+
+  }
+
+  private[protocol] object KafkaChannelBuffer {
+
+    // Can't implement @tailrec methods in value classes in Scala 2.10 (SI-6574)
+    @tailrec
+    private[KafkaChannelBuffer] def decodeMessageSetElementsImpl(
+        buf: ChannelBuffer,
+        msgs: mutable.Buffer[MessageWithOffset]): Seq[MessageWithOffset] = {
+      if (buf.readableBytes < 12) {    // 12 = length(Offset+MessageSize)
+        msgs
+      } else {
+        val offset = buf.decodeInt64() // Offset => int64
+        val size = buf.decodeInt32()   // MessageSize => int32
+        if (size < Message.MinHeaderSize) {
+          throw new InvalidMessageException(s"Message size is corrupted: $size")
+        }
+
+        if (buf.readableBytes < size) {
+          // ignore a partial message at the end of the message set
+          msgs
+        } else {
+          val bytes = buf.readBytes(size) // Message
+          msgs += MessageWithOffset(offset, Message(bytes))
+
+          decodeMessageSetElementsImpl(buf, msgs)
+        }
+      }
     }
 
   }

@@ -20,7 +20,7 @@ class MessageTest extends FlatSpec with Matchers {
     val msg1 = Message.create(
       ChannelBuffers.wrappedBuffer("value1".getBytes(utf8)),     // value
       Some(ChannelBuffers.wrappedBuffer("key1".getBytes(utf8))), // key
-      0                                                          // codec
+      NoCompression                                              // codec
     )
     val kafkaMsg1 = new KafkaMessage(msg1.underlying.toByteBuffer)
 
@@ -33,7 +33,7 @@ class MessageTest extends FlatSpec with Matchers {
     val msg2 = Message.create(
       ChannelBuffers.wrappedBuffer("value2".getBytes(utf8)),     // value
       None,                                                      // key
-      0                                                          // codec
+      NoCompression                                              // codec
     )
     val kafkaMsg2 = new KafkaMessage(msg2.underlying.toByteBuffer)
 

@@ -26,12 +26,12 @@ class MessageSetTest extends FlatSpec with Matchers {
       Message.create(
         ChannelBuffers.wrappedBuffer("value1".getBytes(utf8)),
         Some(ChannelBuffers.wrappedBuffer("key1".getBytes(utf8))),
-        0
+        NoCompression
       ),
       Message.create(
         ChannelBuffers.wrappedBuffer("value2".getBytes(utf8)),
         Some(ChannelBuffers.wrappedBuffer("key2".getBytes(utf8))),
-        0
+        NoCompression
       )
     )
     val buf1 = ChannelBuffers.dynamicBuffer()

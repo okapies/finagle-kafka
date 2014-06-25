@@ -32,6 +32,8 @@ class Message(private[this] val _underlying: ChannelBuffer) {
 
   def attributes: Byte = _underlying.getByte(AttributesOffset)
 
+  def compression: Compression = Compression(attributes & CompressionCodeMask)
+
   def key: Option[ChannelBuffer] = _underlying.getInt(KeySizeOffset) match {
     case keySize if keySize >= 0 => Some(_underlying.slice(KeyOffset, keySize))
     case _ => None
@@ -85,19 +87,22 @@ object Message {
   // Magic value
   final val CurrentMagicValue = 0: Int8
 
+  // The mask for compression codec
+  final val CompressionCodeMask: Int = 0x03
+
   def apply(buffer: ChannelBuffer) = new Message(buffer)
 
   def create(
     value: ChannelBuffer,
     key: Option[ChannelBuffer] = None,
-    attributes: Byte = 0): Message = {
+    compression: Compression = NoCompression): Message = {
 
     val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
 
     // Message => Crc MagicByte Attributes Key Value
     buf.writerIndex(MagicOffset) // skip the Crc field
     buf.encodeInt8(CurrentMagicValue)
-    buf.encodeInt8(attributes)
+    buf.encodeInt8(compression.id.asInstanceOf[Int8]) // only use lowest 2 bits
     key match {
       case Some(b) => buf.encodeBytes(b)
       case None => buf.encodeBytes(null: ChannelBuffer)
