@@ -50,9 +50,6 @@ trait KafkaTest extends BeforeAndAfterAll { suite: Suite =>
     kafkaServer.shutdown()
     Utils.rm(kafkaConfig.getProperty("log.dir"))
     zkClient.close()
-    // Note:
-    // InstanceNotFoundException will be thrown in 'TestingServer' thread
-    // when stopping it. See https://github.com/Netflix/curator/issues/121
     zkServer.stop()
     Utils.rm(zkServer.getTempDirectory)
   }
