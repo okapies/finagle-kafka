@@ -40,6 +40,7 @@ trait KafkaTest extends BeforeAndAfterAll { suite: Suite =>
 
     kafkaConfig = TestUtils.createBrokerConfig(1)
     kafkaConfig.put("zookeeper.connect", zkConn)
+    kafkaConfig.put("host.name", "127.0.0.1")
     kafkaConn = s"""${kafkaConfig.get("host.name")}:${kafkaConfig.get("port")}"""
     kafkaServer = TestUtils.createServer(new KafkaConfig(kafkaConfig))
 
