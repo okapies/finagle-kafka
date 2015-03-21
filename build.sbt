@@ -14,7 +14,7 @@ net.virtualvoid.sbt.graph.Plugin.graphSettings
 
 libraryDependencies ++= List(
   "com.twitter" % "finagle-core_2.10" % "6.24.0",
-  "org.apache.kafka" % "kafka_2.10" % "0.8.1.1"
+  "org.apache.kafka" % "kafka_2.10" % "0.8.2.1"
     exclude("com.101tec", "zkclient")
     exclude("com.yammer.metrics", "metrics-core")
     exclude("net.sf.jopt-simple", "jopt-simple")
@@ -26,7 +26,7 @@ libraryDependencies ++= List(
   "org.apache.curator" % "curator-test" % "2.7.1" % "test",
   "com.101tec" % "zkclient" % "0.4" % "test",
   "com.yammer.metrics" % "metrics-core" % "2.2.0" % "test",
-  "org.apache.kafka" % "kafka_2.10" % "0.8.1.1" % "test" classifier "test"
+  "org.apache.kafka" % "kafka_2.10" % "0.8.2.1" % "test" classifier "test"
 )
 
 publishTo := {
