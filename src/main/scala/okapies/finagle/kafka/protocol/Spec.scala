@@ -22,14 +22,15 @@ private[protocol] object Spec {
   final val ApiVersion0 = 0: Int16
 
   // Api Keys
-  final val ApiKeyProduce      = 0: Int16
-  final val ApiKeyFetch        = 1: Int16
-  final val ApiKeyOffset       = 2: Int16
-  final val ApiKeyMetadata     = 3: Int16
-  final val ApiKeyLeaderAndIsr = 4: Int16
-  final val ApiKeyStopReplica  = 5: Int16
-  final val ApiKeyOffsetCommit = 8: Int16
-  final val ApiKeyOffsetFetch  = 9: Int16
+  final val ApiKeyProduce          = 0: Int16
+  final val ApiKeyFetch            = 1: Int16
+  final val ApiKeyOffset           = 2: Int16
+  final val ApiKeyMetadata         = 3: Int16
+  final val ApiKeyLeaderAndIsr     = 4: Int16
+  final val ApiKeyStopReplica      = 5: Int16
+  final val ApiKeyOffsetCommit     = 8: Int16
+  final val ApiKeyOffsetFetch      = 9: Int16
+  final val ApiKeyConsumerMetadata = 10: Int16
 
   // length of fields
   final val CorrelationIdLength = 4

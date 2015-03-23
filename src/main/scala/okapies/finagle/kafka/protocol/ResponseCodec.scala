@@ -79,6 +79,7 @@ object ResponseDecoder {
     case ApiKeyStopReplica => null
     case ApiKeyOffsetCommit => decodeOffsetCommitResponse(correlationId, frame)
     case ApiKeyOffsetFetch => decodeOffsetFetchResponse(correlationId, frame)
+    case ApiKeyConsumerMetadata => decodeConsumerMetadataResponse(correlationId, frame)
   }
 
   /**
@@ -250,6 +251,22 @@ object ResponseDecoder {
     OffsetFetchResponse(correlationId, results)
   }
 
+  /**
+   * Implemented in Kafka 0.8.2.0
+   *
+   * {{{
+   * ConsumerMetadataResponse => ErrorCode CoordinatorId CoordinatorHost CoordinatorPort
+   * }}}
+   */
+  private[this] def decodeConsumerMetadataResponse(correlationId: Int, buf: ChannelBuffer) = {
+    val error: KafkaError = buf.decodeInt16()
+    val id = buf.decodeInt32()
+    val host = buf.decodeString()
+    val port = buf.decodeInt32()
+
+    val result = ConsumerMetadataResult(error, id, host, port)
+    ConsumerMetadataResponse(correlationId, result)
+  }
 }
 
 /**
