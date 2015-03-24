@@ -17,7 +17,8 @@ object Request {
     classOf[OffsetRequest] -> ApiKeyOffset,
     classOf[MetadataRequest] -> ApiKeyMetadata,
     classOf[OffsetCommitRequest] -> ApiKeyOffsetCommit,
-    classOf[OffsetFetchRequest] -> ApiKeyOffsetFetch
+    classOf[OffsetFetchRequest] -> ApiKeyOffsetFetch,
+    classOf[ConsumerMetadataRequest] -> ApiKeyConsumerMetadata
   )
 
 }
@@ -88,4 +89,11 @@ case class OffsetFetchRequest(
   clientId: String,      // string
   consumerGroup: String, // string
   partitions: Map[String, Seq[Int]]
+) extends Request
+
+// ConsumerMetadataRequest
+case class ConsumerMetadataRequest(
+  correlationId: Int,   // int32
+  clientId: String,     // string
+  consumerGroup: String // string
 ) extends Request

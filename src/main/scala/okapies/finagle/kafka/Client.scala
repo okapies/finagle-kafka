@@ -137,6 +137,14 @@ class Client(
       case MetadataResponse(_, _, topics) => Future.value(topics)
     }
 
+  def consumerMetadata(consumerGroup: String): Future[ConsumerMetadataResult] =
+    doRequest(ConsumerMetadataRequest(
+        nextCorrelationId(),
+        clientId,
+        consumerGroup)) {
+      case ConsumerMetadataResponse(_, result) => Future.value(result)
+    }
+
   def close(deadline: Time): Future[Unit] = service.close(deadline)
 
   private[this] def doRequest[T](req: Request)(

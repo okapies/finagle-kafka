@@ -102,6 +102,19 @@ case class OffsetFetchResult(
   error: KafkaError  // int16
 )
 
+// ConsumerMetadataResponse
+case class ConsumerMetadataResponse(
+  correlationId: Int, // int32
+  result: ConsumerMetadataResult
+) extends Response
+
+case class ConsumerMetadataResult(
+  error: KafkaError,  // int16
+  id: Int,            // int32
+  host: String,       // string
+  port: Int           // int32
+)
+
 /**
  * A message frame for responses.
  */

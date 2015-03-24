@@ -32,6 +32,7 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
           case req: MetadataRequest => encodeMetadataRequest(req)
           case req: OffsetCommitRequest => encodeOffsetCommitRequest(req)
           case req: OffsetFetchRequest => encodeOffsetFetchRequest(req)
+          case req: ConsumerMetadataRequest => encodeConsumerMetadataRequest(req)
         }
 
         logger.add(req)
@@ -197,5 +198,22 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
 
     buf
   }
+
+  /**
+   * Implemented in Kafka 0.8.2.0
+   *
+   * {{{
+   * ConsumerMetadataRequest => ConsumerGroup
+   * }}}
+   */
+  private def encodeConsumerMetadataRequest(req: ConsumerMetadataRequest) = {
+    val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
+    encodeRequestHeader(buf, ApiKeyConsumerMetadata, req)
+
+    buf.encodeString(req.consumerGroup)
+
+    buf
+  }
+
 
 }

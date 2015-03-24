@@ -2,6 +2,8 @@ package okapies.finagle.kafka
 
 import org.scalatest._
 import org.scalatest.matchers._
+import org.scalatest.concurrent.Eventually
+import org.scalatest.time.{Span, Seconds, Millis}
 
 import java.util.Properties
 import java.nio.charset.Charset
@@ -41,6 +43,10 @@ trait KafkaTest extends BeforeAndAfterAll { suite: Suite =>
     kafkaConfig = TestUtils.createBrokerConfig(1)
     kafkaConfig.put("zookeeper.connect", zkConn)
     kafkaConfig.put("host.name", "127.0.0.1")
+
+    // https://github.com/apache/kafka/blob/0.8.2/core/src/test/scala/unit/
+    // kafka/server/OffsetCommitTest.scala#L49
+    kafkaConfig.put("offsets.topic.replication.factor", "1")
     kafkaConn = s"""${kafkaConfig.get("host.name")}:${kafkaConfig.get("port")}"""
     kafkaServer = TestUtils.createServer(new KafkaConfig(kafkaConfig))
 
@@ -57,7 +63,11 @@ trait KafkaTest extends BeforeAndAfterAll { suite: Suite =>
 
 }
 
-class ClientTest extends FlatSpec with Matchers with KafkaTest {
+class ClientTest
+extends FlatSpec
+with Matchers
+with Eventually
+with KafkaTest {
   import ClientTestUtils._
   import Await.result
   import KafkaError._
@@ -66,6 +76,10 @@ class ClientTest extends FlatSpec with Matchers with KafkaTest {
   val topic = "finagle.kafka.test.topic"
   val group = "test-group"
   val msg = Message.create("hello".cb)
+
+  override implicit val patienceConfig =
+    PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(500, Millis)))
+
 
   override def beforeAll {
     // start zookeeper and kafka
@@ -170,9 +184,20 @@ class ClientTest extends FlatSpec with Matchers with KafkaTest {
     commit.error should equal (NoError)
 
     val fetch = result(client.offsetFetch(group, topic, 0))
-    fetch.error should equal(NoError)
+    fetch.error should equal (NoError)
     fetch.metadata should equal(metadata)
   }
   */
+
+  it should "return consumer group metadata" in {
+    eventually {
+      val resp = result(client.consumerMetadata(group))
+
+      resp.error should equal (NoError)
+      resp.id should equal (1)
+      resp.host should equal (kafkaConfig.get("host.name"))
+      resp.port should equal (kafkaConfig.get("port").asInstanceOf[String].toInt)
+    }
+  }
 }
 

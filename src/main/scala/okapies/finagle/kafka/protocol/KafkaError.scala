@@ -20,7 +20,10 @@ case class KafkaError(code: Short /* int16 */) {
     case ErrorMapping.ReplicaNotAvailableCode => "ReplicaNotAvailable"
     case ErrorMapping.MessageSizeTooLargeCode => "MessageSizeTooLarge"
     case ErrorMapping.StaleControllerEpochCode => "StaleControllerEpoch"
-    //case ErrorMapping.OffsetMetadataTooLargeCode => "OffsetMetadataTooLarge"
+    case ErrorMapping.OffsetMetadataTooLargeCode => "OffsetMetadataTooLarge"
+    case ErrorMapping.OffsetsLoadInProgressCode => "OffsetsLoadInProgress"
+    case ErrorMapping.ConsumerCoordinatorNotAvailableCode => "ConsumerCoordinatorNotAvailable"
+    case ErrorMapping.NotCoordinatorForConsumerCode => "NotCoordinatorForConsumer"
     case _ => super.toString
   }
 
@@ -54,8 +57,13 @@ object KafkaError {
 
   final val StaleControllerEpoch = KafkaError(ErrorMapping.StaleControllerEpochCode)
 
-  //val OffsetMetadataTooLarge = KafkaError(ErrorMapping.OffsetMetadataTooLargeCode)
+  final val OffsetMetadataTooLarge = KafkaError(ErrorMapping.OffsetMetadataTooLargeCode)
 
+  final val OffsetsLoadInProgress = KafkaError(ErrorMapping.OffsetsLoadInProgressCode) 
+
+  final val ConsumerCoordinatorNotAvailable = KafkaError(ErrorMapping.ConsumerCoordinatorNotAvailableCode)
+
+  final val NotCoordinatorForConsumer = KafkaError(ErrorMapping.NotCoordinatorForConsumerCode)
 }
 
 class KafkaCodecException(message: String = null, cause: Throwable = null)
