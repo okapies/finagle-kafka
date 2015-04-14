@@ -1,6 +1,6 @@
 package okapies.finagle.kafka.protocol
 
-import org.jboss.netty.buffer.ChannelBuffer
+import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
 import org.jboss.netty.channel.{Channel, ChannelHandlerContext}
 import org.jboss.netty.handler.codec.oneone.{OneToOneEncoder, OneToOneDecoder}
 
@@ -62,6 +62,71 @@ class StreamResponseDecoder extends OneToOneDecoder {
 
       null
     case _ => msg // fall through
+  }
+
+}
+
+object ResponseEncoder {
+  import Spec._
+
+  def encodeResponse(response: Response): ChannelBuffer = response match {
+    case req: MetadataResponse => encodeMetadataResponse(req)
+  }
+
+  private def encodeResponseHeader(buf: ChannelBuffer, resp: Response) {
+    buf.encodeInt32(resp.correlationId) // CorrelationId => int32
+  }
+
+  private def encodeBroker(buf: ChannelBuffer, broker: Broker) {
+    buf.encodeInt32(broker.nodeId)
+    buf.encodeString(broker.host)
+    buf.encodeInt32(broker.port)
+  }
+
+  /**
+   * {{{
+   * MetadataResponse => [Broker][TopicMetadata]
+   *   Broker => NodeId Host Port
+   *   TopicMetadata => TopicErrorCode TopicName [PartitionMetadata]
+   *     PartitionMetadata => PartitionErrorCode PartitionId Leader [Replicas] [Isr]
+   * }}}
+   */
+  private def encodeMetadataResponse(req: MetadataResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, req)
+
+    //  [Broker]
+    buf.encodeArray(req.brokers) { broker =>
+      encodeBroker(buf, broker)
+    }
+
+    // [TopicMetadata]
+
+    buf.encodeArray(req.topics) { topic =>
+      buf.encodeInt16(topic.error.code)
+      buf.encodeString(topic.name)
+
+      // [PartitionMetadata]
+      buf.encodeArray(topic.partitions) { partition =>
+        buf.encodeInt16(partition.error.code)
+        buf.encodeInt32(partition.id)
+
+        // id of leader broker or -1 if during leader election
+        val leaderId = partition.leader.map(_.nodeId).getOrElse(-1)
+        buf.encodeInt32(leaderId)
+        
+        buf.encodeArray(partition.replicas) { broker =>
+          buf.encodeInt32(broker.nodeId)
+        }
+
+        buf.encodeArray(partition.isr) { broker =>
+          buf.encodeInt32(broker.nodeId)
+        }
+      }
+    }
+
+    buf
   }
 
 }
