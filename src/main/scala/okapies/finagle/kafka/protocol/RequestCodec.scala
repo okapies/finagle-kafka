@@ -64,12 +64,37 @@ class RequestDecoder extends OneToOneDecoder {
     ProduceRequest(corrId, clientId, acks, timeout, topics)
   }
 
+  /**
+   * {{{
+   * FetchRequest => ReplicaId MaxWaitTime MinBytes [TopicName [Partition FetchOffset MaxBytes]]
+   * }}}
+   */
   private def decodeFetchRequest(corrId: Int, clientId: String, frame: ChannelBuffer): FetchRequest = {
-    null
+    val replicaId = frame.decodeInt32()
+    val maxWaitTime = frame.decodeInt32()
+    val minBytes = frame.decodeInt32()
+
+    val topicPartitions = frame.decodeArray {
+      val topic = frame.decodeString()
+
+      val partitions = frame.decodeArray {
+        val partition = frame.decodeInt32()
+        val offset = frame.decodeInt64()
+        val maxBytes = frame.decodeInt32()
+
+        (partition -> FetchOffset(offset, maxBytes))
+      }.toMap
+
+      (topic -> partitions)
+    }.toMap
+
+    FetchRequest(corrId, clientId, replicaId, maxWaitTime, minBytes,topicPartitions)
   }
 
   /**
+   * {{{
    * OffsetRequest => ReplicaId [TopicName [Partition Time MaxNumberOfOffsets]]
+   * }}}
    */
   private def decodeOffsetRequest(corrId: Int, clientId: String, frame: ChannelBuffer): OffsetRequest = {
     val replicaId = frame.decodeInt32()

@@ -172,6 +172,13 @@ private[protocol] object Spec {
       messages.foreach(f)
     }
 
+    @inline
+    def encodeMessageSetWithOffset(messages: Seq[MessageWithOffset])(f: MessageWithOffset => Unit) = {
+      buf.encodeInt32(messages.foldLeft(0)(_ + OffsetLength + MessageSizeLength + _.message.size))
+      messages.foreach(f)
+    }
+
+
     /*
      * Methods for decoding next bytes.
      */
