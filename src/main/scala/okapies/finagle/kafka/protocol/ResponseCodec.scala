@@ -66,71 +66,6 @@ class StreamResponseDecoder extends OneToOneDecoder {
 
 }
 
-object ResponseEncoder {
-  import Spec._
-
-  def encodeResponse(response: Response): ChannelBuffer = response match {
-    case req: MetadataResponse => encodeMetadataResponse(req)
-  }
-
-  private def encodeResponseHeader(buf: ChannelBuffer, resp: Response) {
-    buf.encodeInt32(resp.correlationId) // CorrelationId => int32
-  }
-
-  private def encodeBroker(buf: ChannelBuffer, broker: Broker) {
-    buf.encodeInt32(broker.nodeId)
-    buf.encodeString(broker.host)
-    buf.encodeInt32(broker.port)
-  }
-
-  /**
-   * {{{
-   * MetadataResponse => [Broker][TopicMetadata]
-   *   Broker => NodeId Host Port
-   *   TopicMetadata => TopicErrorCode TopicName [PartitionMetadata]
-   *     PartitionMetadata => PartitionErrorCode PartitionId Leader [Replicas] [Isr]
-   * }}}
-   */
-  private def encodeMetadataResponse(req: MetadataResponse) = {
-    val buf = ChannelBuffers.dynamicBuffer()
-
-    encodeResponseHeader(buf, req)
-
-    //  [Broker]
-    buf.encodeArray(req.brokers) { broker =>
-      encodeBroker(buf, broker)
-    }
-
-    // [TopicMetadata]
-
-    buf.encodeArray(req.topics) { topic =>
-      buf.encodeInt16(topic.error.code)
-      buf.encodeString(topic.name)
-
-      // [PartitionMetadata]
-      buf.encodeArray(topic.partitions) { partition =>
-        buf.encodeInt16(partition.error.code)
-        buf.encodeInt32(partition.id)
-
-        // id of leader broker or -1 if during leader election
-        val leaderId = partition.leader.map(_.nodeId).getOrElse(-1)
-        buf.encodeInt32(leaderId)
-        
-        buf.encodeArray(partition.replicas) { broker =>
-          buf.encodeInt32(broker.nodeId)
-        }
-
-        buf.encodeArray(partition.isr) { broker =>
-          buf.encodeInt32(broker.nodeId)
-        }
-      }
-    }
-
-    buf
-  }
-
-}
-
 object ResponseDecoder {
 
   import Spec._
@@ -341,6 +276,88 @@ class ResponseEncoder extends OneToOneEncoder {
 
   import Spec._
 
-  def encode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef) = msg
+  override def encode(ctx: ChannelHandlerContext, channel: Channel, msg: Any) = msg match {
+    case resp: MetadataResponse => encodeMetadataResponse(resp)
+    case resp: ProduceResponse => encodeProduceResponse(resp)
+  }
+
+  private def encodeResponseHeader(buf: ChannelBuffer, resp: Response) {
+    buf.encodeInt32(resp.correlationId) // CorrelationId => int32
+  }
+
+  private def encodeBroker(buf: ChannelBuffer, broker: Broker) {
+    buf.encodeInt32(broker.nodeId)
+    buf.encodeString(broker.host)
+    buf.encodeInt32(broker.port)
+  }
+
+  /**
+   * {{{
+   * MetadataResponse => [Broker][TopicMetadata]
+   *   Broker => NodeId Host Port
+   *   TopicMetadata => TopicErrorCode TopicName [PartitionMetadata]
+   *     PartitionMetadata => PartitionErrorCode PartitionId Leader [Replicas] [Isr]
+   * }}}
+   */
+  private def encodeMetadataResponse(resp: MetadataResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    //  [Broker]
+    buf.encodeArray(resp.brokers) { broker =>
+      encodeBroker(buf, broker)
+    }
+
+    // [TopicMetadata]
+
+    buf.encodeArray(resp.topics) { topic =>
+      buf.encodeInt16(topic.error.code)
+      buf.encodeString(topic.name)
+
+      // [PartitionMetadata]
+      buf.encodeArray(topic.partitions) { partition =>
+        buf.encodeInt16(partition.error.code)
+        buf.encodeInt32(partition.id)
+
+        // id of leader broker or -1 if during leader election
+        val leaderId = partition.leader.map(_.nodeId).getOrElse(-1)
+        buf.encodeInt32(leaderId)
+
+        buf.encodeArray(partition.replicas) { broker =>
+          buf.encodeInt32(broker.nodeId)
+        }
+
+        buf.encodeArray(partition.isr) { broker =>
+          buf.encodeInt32(broker.nodeId)
+        }
+      }
+    }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * ProduceResponse => [TopicName [Partition ErrorCode Offset]]
+   * }}}
+   */
+  private def encodeProduceResponse(resp: ProduceResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeArray(resp.results) { case (topic, partitions) =>
+      buf.encodeString(topic)
+
+      buf.encodeArray(partitions) { case (id, partition) =>
+        buf.encodeInt32(id)
+        buf.encodeInt16(partition.error.code)
+        buf.encodeInt64(partition.offset)
+      }
+    }
+
+    buf
+  }
 
 }
