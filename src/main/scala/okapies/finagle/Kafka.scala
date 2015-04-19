@@ -1,13 +1,17 @@
 package okapies.finagle
 
-import com.twitter.finagle.{Client, Name}
+import com.twitter.util.{Future, Promise}
+import com.twitter.finagle.{Client, Name, Server, Service, ServiceFactory}
 import com.twitter.finagle.client.{Bridge, DefaultClient}
-import com.twitter.finagle.dispatch.PipeliningDispatcher
-import com.twitter.finagle.netty3.Netty3Transporter
+import com.twitter.finagle.server.DefaultServer
+import com.twitter.finagle.dispatch.{PipeliningDispatcher, GenSerialServerDispatcher}
+import com.twitter.finagle.netty3.{Netty3Transporter, Netty3Listener}
 import com.twitter.finagle.pool.SingletonPool
+import com.twitter.finagle.transport.Transport
 import com.twitter.finagle.stats.StatsReceiver
+import java.net.SocketAddress
 
-import okapies.finagle.kafka.protocol.{KafkaBatchClientPipelineFactory, KafkaStreamClientPipelineFactory, Request, Response}
+import okapies.finagle.kafka.protocol._
 
 trait KafkaRichClient { self: Client[Request, Response] =>
 
@@ -29,89 +33,48 @@ object KafkaClient extends DefaultClient[Request, Response](
   pool = (sr: StatsReceiver) => new SingletonPool(_, sr)
 ) with KafkaRichClient
 
-object Kafka extends Client[Request, Response] with KafkaRichClient {
+class KafkaServerDispatcher(
+  trans: Transport[Response, Request],
+  service: Service[Request, Response])
+extends GenSerialServerDispatcher[Request, Response, Response, Request](trans) {
 
-  def newClient(dest: Name, label: String) = KafkaClient.newClient(dest, label)
+  trans.onClose ensure {
+    service.close()
+  }
+
+  protected def dispatch(msg: Request, eos: Promise[Unit]) = msg match {
+    case req: Request =>
+      service(req) ensure eos.setDone()
+    case failure =>
+      eos.setDone
+      Future.exception(new IllegalArgumentException(s"Invalid message $failure"))
+  }
+
+  protected def handle(resp: Response) = {
+    trans.write(resp)
+  }
 }
 
-object KafkaServer {
-  import com.twitter.util.{Future, Promise}
-  import okapies.finagle.kafka.protocol.{ResponseEncoder, KafkaServerPipelineFactory}
-  import com.twitter.finagle.{Stack, ServiceFactory, Service, ListeningServer}
-  import com.twitter.finagle.dispatch.GenSerialServerDispatcher
-  import com.twitter.finagle.netty3.Netty3Listener
-  import com.twitter.finagle.transport.Transport
-  import com.twitter.finagle.server.{StdStackServer, StackServer, Listener}
-  import org.jboss.netty.buffer.ChannelBuffer
-  import org.jboss.netty.util.CharsetUtil
-  import org.jboss.netty.channel.{ChannelPipelineFactory, Channels}
-  import org.jboss.netty.handler.codec.frame.{LengthFieldPrepender, LengthFieldBasedFrameDecoder}
-  import org.jboss.netty.handler.codec.string.{StringDecoder, StringEncoder}
-  import java.net.SocketAddress
 
-  object SimpleServerPipeline extends ChannelPipelineFactory {
-    def getPipeline = {
-      val pipeline = Channels.pipeline()
-      // decoders (upstream)
-      pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Int.MaxValue, 0, 4, 0, 4))
-      pipeline.addLast("stringDecoder", new StringDecoder(CharsetUtil.UTF_8))
-      pipeline.addLast("stringEncoder", new StringEncoder(CharsetUtil.UTF_8))
-      pipeline
-    }
-  }
+object Kafka
+extends Client[Request, Response]
+with KafkaRichClient
+with Server[Request, Response] {
 
-  class KafkaServerDispatcher(
-    trans: Transport[ChannelBuffer, ChannelBuffer],
-    service: Service[Request, Response])
-  extends GenSerialServerDispatcher[Request, Response, ChannelBuffer, ChannelBuffer](trans) {
+  def newClient(dest: Name, label: String) = KafkaClient.newClient(dest, label)
 
-    trans.onClose ensure {
-      service.close()
-    }
+  class Server() extends DefaultServer[Request, Response, Response, Request](
+    "kafka-server",
+    new Netty3Listener(
+      "kafka-server-listener",
+      new KafkaServerPipelineFactory
+    ),
+    new KafkaServerDispatcher(_, _)
+  )
 
-    protected def dispatch(msg: ChannelBuffer, eos: Promise[Unit]) = msg match {
-      case req: Request =>
-        service(req) ensure eos.setDone()
-      case failure =>
-        eos.setDone
-        Future.exception(new IllegalArgumentException(s"Invalid message $failure"))
-    }
+  private val server = new Server()
 
-    protected def handle(resp: Response) = {
-      trans.write(ResponseEncoder.encodeResponse(resp))
-    }
-  }
-
-  case class Server(
-    stack: Stack[ServiceFactory[Request, Response]] = StackServer.newStack,
-    params: Stack.Params = StackServer.defaultParams
-  ) extends StdStackServer[Request, Response, Server] {
-
-    protected type In = ChannelBuffer
-    protected type Out = ChannelBuffer
-
-    protected def copy1(
-      stack: Stack[ServiceFactory[Request, Response]] = StackServer.newStack,
-      params: Stack.Params = StackServer.defaultParams
-    ) = copy(stack, params)
-
-    protected def newDispatcher(
-      transport: Transport[In, Out],
-      service: Service[Request, Response]) = {
-      new KafkaServerDispatcher(transport, service)
-    }
-
-    protected def newListener(): Listener[In, Out] = {
-      Netty3Listener(new KafkaServerPipelineFactory, params)
-    }
-  }
-
-  val server = Server()
-
-  def serve(
-    addr: SocketAddress,
-    service: ServiceFactory[Request, Response]): ListeningServer =
+  def serve(addr: SocketAddress, service: ServiceFactory[Request, Response]) =
     server.serve(addr, service)
-
 }
 
