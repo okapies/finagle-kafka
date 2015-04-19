@@ -68,8 +68,27 @@ class RequestDecoder extends OneToOneDecoder {
     null
   }
 
+  /**
+   * OffsetRequest => ReplicaId [TopicName [Partition Time MaxNumberOfOffsets]]
+   */
   private def decodeOffsetRequest(corrId: Int, clientId: String, frame: ChannelBuffer): OffsetRequest = {
-    null
+    val replicaId = frame.decodeInt32()
+
+    val topicPartitions = frame.decodeArray {
+      val name = frame.decodeString()
+
+      val partitions = frame.decodeArray {
+        val partition = frame.decodeInt32()
+        val time = frame.decodeInt64()
+        val maxOffsets = frame.decodeInt32()
+
+        (partition -> OffsetFilter(time, maxOffsets))
+      }.toMap
+
+      (name -> partitions)
+    }.toMap
+
+    OffsetRequest(corrId, clientId, replicaId, topicPartitions)
   }
 
   /**

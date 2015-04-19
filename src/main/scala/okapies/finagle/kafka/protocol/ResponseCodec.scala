@@ -279,6 +279,7 @@ class ResponseEncoder extends OneToOneEncoder {
   override def encode(ctx: ChannelHandlerContext, channel: Channel, msg: Any) = msg match {
     case resp: MetadataResponse => encodeMetadataResponse(resp)
     case resp: ProduceResponse => encodeProduceResponse(resp)
+    case resp: OffsetResponse => encodeOffsetResponse(resp)
   }
 
   private def encodeResponseHeader(buf: ChannelBuffer, resp: Response) {
@@ -354,6 +355,32 @@ class ResponseEncoder extends OneToOneEncoder {
         buf.encodeInt32(id)
         buf.encodeInt16(partition.error.code)
         buf.encodeInt64(partition.offset)
+      }
+    }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * OffsetResponse => [TopicName [PartitionOffsets]]
+   * }}}
+   */
+  private def encodeOffsetResponse(resp: OffsetResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeArray(resp.results) { case (topic, partitions) =>
+      buf.encodeString(topic)
+
+      buf.encodeArray(partitions) { case (partition, offsetResults) =>
+        buf.encodeInt32(partition)
+        buf.encodeInt16(offsetResults.error.code)
+
+        buf.encodeArray(offsetResults.offsets) { case offset =>
+          buf.encodeInt64(offset)
+        }
       }
     }
 

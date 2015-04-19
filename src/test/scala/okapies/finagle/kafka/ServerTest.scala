@@ -74,6 +74,9 @@ with BeforeAndAfterEach {
 
   val produceResp = ProduceResponse(0, Map(Topic -> Map(0 -> produceResult)))
 
+  val offsetResp = OffsetResponse(0, Map(Topic ->
+    Map(0 -> OffsetResult(KafkaError.NoError, Seq(0,1)))))
+
   // service that responds corresponding to the request
   val service = Service.mk[Request, Response] {
     case MetadataRequest(corrId, clientId, topics) =>
@@ -82,6 +85,9 @@ with BeforeAndAfterEach {
 
     case ProduceRequest(corrId, clientId, acks, timeout, msgs) =>
       Future.value(produceResp)
+
+    case OffsetRequest(corrId, clientId, replicaId, offsets) =>
+      Future.value(offsetResp)
 
     case req => Future.value(null)
   }
@@ -112,7 +118,14 @@ with BeforeAndAfterEach {
 
       resp should be(produceResp)
     }
+ 
+    it should "respond to offset requests" in {
+      val resp = result(client(OffsetRequest(0, ClientId, 0,
+        Map(Topic -> Map(0 -> OffsetFilter(0, 1))))))
 
+      resp should be(offsetResp)
+    }
+  
     it should "respond to metadata requests" in {
       val resp = result(client(MetadataRequest(0, ClientId, Seq(Topic))))
 
