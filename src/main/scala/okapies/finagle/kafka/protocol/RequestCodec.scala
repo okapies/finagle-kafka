@@ -165,8 +165,25 @@ class RequestDecoder extends OneToOneDecoder {
     OffsetCommitRequest(corrId, clientId, consumerGroup, topicPartitions)
   }
 
+  /**
+   * {{{
+   * OffsetFetchRequest => ConsumerGroup [TopicName [Partition]]
+   * }}}
+   */
   private def decodeOffsetFetchRequest(corrId: Int, clientId: String, frame: ChannelBuffer): OffsetFetchRequest = {
-    null
+    val consumerGroup = frame.decodeString()
+
+    val topicPartitions = frame.decodeArray {
+      val topic = frame.decodeString()
+
+      val partitions = frame.decodeArray {
+        frame.decodeInt32()
+      }
+
+      (topic -> partitions)
+    }.toMap
+
+    OffsetFetchRequest(corrId, clientId, consumerGroup, topicPartitions)
   }
 
   private def decodeConsumerMetadataRequest(corrId: Int, clientId: String, frame: ChannelBuffer): ConsumerMetadataRequest = {

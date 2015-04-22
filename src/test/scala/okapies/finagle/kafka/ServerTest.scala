@@ -84,6 +84,9 @@ with BeforeAndAfterEach {
   val offsetCommitResp = OffsetCommitResponse(0, Map(Topic ->
     Map(0 -> OffsetCommitResult(KafkaError.NoError))))
 
+  val offsetFetchResp = OffsetFetchResponse(0, Map(Topic ->
+    Map(0 -> OffsetFetchResult(0, "metadata", KafkaError.NoError))))
+
   // service that responds corresponding to the request
   val service = Service.mk[Request, Response] {
     case req: MetadataRequest =>
@@ -100,6 +103,9 @@ with BeforeAndAfterEach {
 
     case req: OffsetCommitRequest =>
       Future.value(offsetCommitResp)
+
+    case req: OffsetFetchRequest =>
+      Future.value(offsetFetchResp)
 
     case req => Future.value(null)
   }
@@ -153,8 +159,16 @@ with BeforeAndAfterEach {
 
     it should "respond to offset commit requests (v1)" in {
       val resp = result(client(OffsetCommitRequest(0, ClientId, ConsumerGroup,
-        Map(Topic -> Map(0 -> CommitOffset(0, "hello"))))))
+        Map(Topic -> Map(0 -> CommitOffset(0, "metadata"))))))
 
       resp should be(offsetCommitResp)
     }
+
+    it should "respond to offset fetch requests" in {
+      val resp = result(client(OffsetFetchRequest(0, ClientId, ConsumerGroup,
+        Map(Topic -> Seq(0)))))
+
+      resp should be(offsetFetchResp)
+    }
+
 }

@@ -282,6 +282,7 @@ class ResponseEncoder extends OneToOneEncoder {
     case resp: OffsetResponse => encodeOffsetResponse(resp)
     case resp: FetchResponse => encodeFetchResponse(resp)
     case resp: OffsetCommitResponse => encodeOffsetCommitResponse(resp)
+    case resp: OffsetFetchResponse => encodeOffsetFetchResponse(resp)
   }
 
   private def encodeResponseHeader(buf: ChannelBuffer, resp: Response) {
@@ -434,6 +435,30 @@ class ResponseEncoder extends OneToOneEncoder {
       buf.encodeArray(partitions) { case (partition, commitResult) =>
         buf.encodeInt32(partition)
         buf.encodeInt16(commitResult.error.code)
+      }
+    }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * OffsetFetchResponse => [TopicName [Partition Offset Metadata ErrorCode]]
+   * }}}
+   */
+  private def encodeOffsetFetchResponse(resp: OffsetFetchResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeArray(resp.results) { case (topic, partitions) =>
+      buf.encodeString(topic)
+
+      buf.encodeArray(partitions) { case (partition, fetchResult) =>
+        buf.encodeInt32(partition)
+        buf.encodeInt64(fetchResult.offset)
+        buf.encodeString(fetchResult.metadata)
+        buf.encodeInt16(fetchResult.error.code)
       }
     }
 
