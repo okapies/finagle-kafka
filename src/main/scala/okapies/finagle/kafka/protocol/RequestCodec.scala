@@ -13,8 +13,194 @@ class RequestDecoder extends OneToOneDecoder {
   import Spec._
 
   def decode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef) = msg match {
-    case bytes: Array[Byte] => null
+    case frame: ChannelBuffer =>
+      val (apiKey, version, correlationId, clientId) = decodeRequestHeader(frame)
+
+      apiKey match {
+        case ApiKeyProduce => decodeProduceRequest(correlationId, clientId, frame)
+        case ApiKeyFetch => decodeFetchRequest(correlationId, clientId, frame)
+        case ApiKeyOffset => decodeOffsetRequest(correlationId, clientId, frame)
+        case ApiKeyMetadata => decodeMetadataRequest(correlationId, clientId, frame)
+        case ApiKeyLeaderAndIsr => null
+        case ApiKeyStopReplica => null
+        case ApiKeyOffsetCommit =>
+          version match {
+            case 0 => decodeOffsetCommitRequestV0(correlationId, clientId, frame)
+            case _ => null // not yet supporting v1, v2
+          }
+
+        case ApiKeyOffsetFetch => decodeOffsetFetchRequest(correlationId, clientId, frame)
+        case ApiKeyConsumerMetadata => decodeConsumerMetadataRequest(correlationId, clientId, frame)
+      }
   }
+
+  private def decodeRequestHeader(buf: ChannelBuffer): (Short, Short, Int, String) = {
+    val apiKey = buf.decodeInt16()
+    val version = buf.decodeInt16()
+    val correlationId = buf.decodeInt32()
+    val clientId = buf.decodeString()
+    (apiKey, version, correlationId, clientId)
+  }
+
+  /**
+   * {{{
+   * ProduceRequest => RequiredAcks Timeout [TopicName [Partition MessageSetSize MessageSet]]
+   *   MessageSet => [Offset MessageSize Message]
+   * }}}
+   */
+  private def decodeProduceRequest(corrId: Int, clientId: String, frame: ChannelBuffer): ProduceRequest = {
+    val acks = RequiredAcks(frame.decodeInt16())
+    val timeout = frame.decodeInt32()
+
+    val topics = frame.decodeArray {
+      val name = frame.decodeString()
+
+      val partitions = frame.decodeArray {
+        val partition = frame.decodeInt32()
+
+        // decodes MessageSize and MessageSet
+        val msgs = frame.decodeMessageSet()
+        (partition -> msgs.map(_.message))
+      }.toMap
+
+      (name -> partitions)
+    }.toMap
+
+    ProduceRequest(corrId, clientId, acks, timeout, topics)
+  }
+
+  /**
+   * {{{
+   * FetchRequest => ReplicaId MaxWaitTime MinBytes [TopicName [Partition FetchOffset MaxBytes]]
+   * }}}
+   */
+  private def decodeFetchRequest(corrId: Int, clientId: String, frame: ChannelBuffer): FetchRequest = {
+    val replicaId = frame.decodeInt32()
+    val maxWaitTime = frame.decodeInt32()
+    val minBytes = frame.decodeInt32()
+
+    val topicPartitions = frame.decodeArray {
+      val topic = frame.decodeString()
+
+      val partitions = frame.decodeArray {
+        val partition = frame.decodeInt32()
+        val offset = frame.decodeInt64()
+        val maxBytes = frame.decodeInt32()
+
+        (partition -> FetchOffset(offset, maxBytes))
+      }.toMap
+
+      (topic -> partitions)
+    }.toMap
+
+    FetchRequest(corrId, clientId, replicaId, maxWaitTime, minBytes,topicPartitions)
+  }
+
+  /**
+   * {{{
+   * OffsetRequest => ReplicaId [TopicName [Partition Time MaxNumberOfOffsets]]
+   * }}}
+   */
+  private def decodeOffsetRequest(corrId: Int, clientId: String, frame: ChannelBuffer): OffsetRequest = {
+    val replicaId = frame.decodeInt32()
+
+    val topicPartitions = frame.decodeArray {
+      val name = frame.decodeString()
+
+      val partitions = frame.decodeArray {
+        val partition = frame.decodeInt32()
+        val time = frame.decodeInt64()
+        val maxOffsets = frame.decodeInt32()
+
+        (partition -> OffsetFilter(time, maxOffsets))
+      }.toMap
+
+      (name -> partitions)
+    }.toMap
+
+    OffsetRequest(corrId, clientId, replicaId, topicPartitions)
+  }
+
+  /**
+   * {{{
+   * MetadataRequest => [TopicName]
+   * }}}
+   */
+  private def decodeMetadataRequest(corrId: Int, clientId: String, frame: ChannelBuffer): MetadataRequest = {
+    val topics = frame.decodeArray {
+      frame.decodeString()
+    }
+
+    MetadataRequest(corrId, clientId, topics)
+  }
+
+  /**
+   * {{{
+   * OffsetCommitRequest => ConsumerGroupId [TopicName [Partition Offset Metadata]]
+   * }}}
+   *
+   * v0, kafka 0.8.1 and later
+   */
+  private def decodeOffsetCommitRequestV0(
+    corrId: Int,
+    clientId: String,
+    frame: ChannelBuffer): OffsetCommitRequest = {
+    
+    val consumerGroup = frame.decodeString()
+
+    val topicPartitions = frame.decodeArray {
+      val name = frame.decodeString()
+
+      val partition = frame.decodeArray {
+        val partition = frame.decodeInt32()
+        val offset = frame.decodeInt64()
+        val metadata = frame.decodeString()
+
+        (partition -> CommitOffset(offset, metadata))
+      }.toMap
+
+      (name -> partition)
+    }.toMap
+
+    OffsetCommitRequest(corrId, clientId, consumerGroup, topicPartitions)
+  }
+
+  /**
+   * {{{
+   * OffsetFetchRequest => ConsumerGroup [TopicName [Partition]]
+   * }}}
+   */
+  private def decodeOffsetFetchRequest(corrId: Int, clientId: String, frame: ChannelBuffer): OffsetFetchRequest = {
+    val consumerGroup = frame.decodeString()
+
+    val topicPartitions = frame.decodeArray {
+      val topic = frame.decodeString()
+
+      val partitions = frame.decodeArray {
+        frame.decodeInt32()
+      }
+
+      (topic -> partitions)
+    }.toMap
+
+    OffsetFetchRequest(corrId, clientId, consumerGroup, topicPartitions)
+  }
+
+  /**
+   * {{{
+   * ConsumerMetadataRequest => ConsumerGroup
+   * }}}
+   */
+  private def decodeConsumerMetadataRequest(
+    corrId: Int,
+    clientId: String,
+    frame: ChannelBuffer): ConsumerMetadataRequest = {
+
+    val consumerGroup = frame.decodeString()
+
+    ConsumerMetadataRequest(corrId, clientId, consumerGroup)
+  }
+
 
 }
 

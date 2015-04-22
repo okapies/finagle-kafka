@@ -17,3 +17,6 @@ project/plugins/project/
 *.iml
 *.ipr
 *.iws
+
+# vim
+*.swp
