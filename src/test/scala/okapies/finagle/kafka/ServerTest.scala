@@ -51,6 +51,7 @@ with BeforeAndAfterEach {
   val ClientId = "test-client"
   val Topic = "test-topic"
   val Msg = Message.create(ChannelBuffers.EMPTY_BUFFER)
+  val ConsumerGroup = "test-group"
 
   val broker = Broker(0, "test", 9092)
 
@@ -80,19 +81,25 @@ with BeforeAndAfterEach {
   val fetchResp = FetchResponse(0, Map(Topic ->
     Map(0 -> FetchResult(KafkaError.NoError, 0, Seq(MessageWithOffset(0, Msg))))))
 
+  val offsetCommitResp = OffsetCommitResponse(0, Map(Topic ->
+    Map(0 -> OffsetCommitResult(KafkaError.NoError))))
+
   // service that responds corresponding to the request
   val service = Service.mk[Request, Response] {
-    case MetadataRequest(corrId, clientId, topics) =>
+    case req: MetadataRequest =>
       Future.value(metadataResp)
 
-    case fetch: FetchRequest =>
+    case req: FetchRequest =>
       Future.value(fetchResp)
 
-    case ProduceRequest(corrId, clientId, acks, timeout, msgs) =>
+    case req: ProduceRequest =>
       Future.value(produceResp)
 
-    case OffsetRequest(corrId, clientId, replicaId, offsets) =>
+    case req: OffsetRequest =>
       Future.value(offsetResp)
+
+    case req: OffsetCommitRequest =>
+      Future.value(offsetCommitResp)
 
     case req => Future.value(null)
   }
@@ -142,5 +149,12 @@ with BeforeAndAfterEach {
       val resp = result(client(MetadataRequest(0, ClientId, Seq(Topic))))
 
       resp should be(metadataResp)
+    }
+
+    it should "respond to offset commit requests (v1)" in {
+      val resp = result(client(OffsetCommitRequest(0, ClientId, ConsumerGroup,
+        Map(Topic -> Map(0 -> CommitOffset(0, "hello"))))))
+
+      resp should be(offsetCommitResp)
     }
 }

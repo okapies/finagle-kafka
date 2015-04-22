@@ -23,7 +23,12 @@ class RequestDecoder extends OneToOneDecoder {
         case ApiKeyMetadata => decodeMetadataRequest(correlationId, clientId, frame)
         case ApiKeyLeaderAndIsr => null
         case ApiKeyStopReplica => null
-        case ApiKeyOffsetCommit => decodeOffsetCommitRequest(correlationId, clientId, frame)
+        case ApiKeyOffsetCommit =>
+          version match {
+            case 0 => decodeOffsetCommitRequestV0(correlationId, clientId, frame)
+            case _ => null // not yet supporting v1, v2
+          }
+
         case ApiKeyOffsetFetch => decodeOffsetFetchRequest(correlationId, clientId, frame)
         case ApiKeyConsumerMetadata => decodeConsumerMetadataRequest(correlationId, clientId, frame)
       }
@@ -129,8 +134,35 @@ class RequestDecoder extends OneToOneDecoder {
     MetadataRequest(corrId, clientId, topics)
   }
 
-  private def decodeOffsetCommitRequest(corrId: Int, clientId: String, frame: ChannelBuffer): OffsetCommitRequest = {
-    null
+  /**
+   * {{{
+   * OffsetCommitRequest => ConsumerGroupId [TopicName [Partition Offset Metadata]]
+   * }}}
+   *
+   * v0, kafka 0.8.1 and later
+   */
+  private def decodeOffsetCommitRequestV0(
+    corrId: Int,
+    clientId: String,
+    frame: ChannelBuffer): OffsetCommitRequest = {
+    
+    val consumerGroup = frame.decodeString()
+
+    val topicPartitions = frame.decodeArray {
+      val name = frame.decodeString()
+
+      val partition = frame.decodeArray {
+        val partition = frame.decodeInt32()
+        val offset = frame.decodeInt64()
+        val metadata = frame.decodeString()
+
+        (partition -> CommitOffset(offset, metadata))
+      }.toMap
+
+      (name -> partition)
+    }.toMap
+
+    OffsetCommitRequest(corrId, clientId, consumerGroup, topicPartitions)
   }
 
   private def decodeOffsetFetchRequest(corrId: Int, clientId: String, frame: ChannelBuffer): OffsetFetchRequest = {
