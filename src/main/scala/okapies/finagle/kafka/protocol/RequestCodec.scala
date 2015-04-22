@@ -186,8 +186,19 @@ class RequestDecoder extends OneToOneDecoder {
     OffsetFetchRequest(corrId, clientId, consumerGroup, topicPartitions)
   }
 
-  private def decodeConsumerMetadataRequest(corrId: Int, clientId: String, frame: ChannelBuffer): ConsumerMetadataRequest = {
-    null
+  /**
+   * {{{
+   * ConsumerMetadataRequest => ConsumerGroup
+   * }}}
+   */
+  private def decodeConsumerMetadataRequest(
+    corrId: Int,
+    clientId: String,
+    frame: ChannelBuffer): ConsumerMetadataRequest = {
+
+    val consumerGroup = frame.decodeString()
+
+    ConsumerMetadataRequest(corrId, clientId, consumerGroup)
   }
 
 

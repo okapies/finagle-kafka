@@ -283,6 +283,7 @@ class ResponseEncoder extends OneToOneEncoder {
     case resp: FetchResponse => encodeFetchResponse(resp)
     case resp: OffsetCommitResponse => encodeOffsetCommitResponse(resp)
     case resp: OffsetFetchResponse => encodeOffsetFetchResponse(resp)
+    case resp: ConsumerMetadataResponse => encodeConsumerMetadataResponse(resp)
   }
 
   private def encodeResponseHeader(buf: ChannelBuffer, resp: Response) {
@@ -461,6 +462,24 @@ class ResponseEncoder extends OneToOneEncoder {
         buf.encodeInt16(fetchResult.error.code)
       }
     }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * ConsumerMetadataResponse => ErrorCode CoordinatorId CoordinatorHost CoordinatorPort
+   * }}}
+   */
+  private def encodeConsumerMetadataResponse(resp: ConsumerMetadataResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeInt16(resp.result.error.code)
+    buf.encodeInt32(resp.result.id)
+    buf.encodeString(resp.result.host)
+    buf.encodeInt32(resp.result.port)
 
     buf
   }

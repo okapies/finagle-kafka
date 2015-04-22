@@ -87,6 +87,9 @@ with BeforeAndAfterEach {
   val offsetFetchResp = OffsetFetchResponse(0, Map(Topic ->
     Map(0 -> OffsetFetchResult(0, "metadata", KafkaError.NoError))))
 
+  val consumerMetadataResp = ConsumerMetadataResponse(0,
+    ConsumerMetadataResult(KafkaError.NoError, 0, "broker", 9092))
+
   // service that responds corresponding to the request
   val service = Service.mk[Request, Response] {
     case req: MetadataRequest =>
@@ -106,6 +109,9 @@ with BeforeAndAfterEach {
 
     case req: OffsetFetchRequest =>
       Future.value(offsetFetchResp)
+
+    case req: ConsumerMetadataRequest =>
+      Future.value(consumerMetadataResp)
 
     case req => Future.value(null)
   }
@@ -169,6 +175,12 @@ with BeforeAndAfterEach {
         Map(Topic -> Seq(0)))))
 
       resp should be(offsetFetchResp)
+    }
+
+    it should "respond to consumer metadata requests" in {
+      val resp = result(client(ConsumerMetadataRequest(0, ClientId, ConsumerGroup)))
+
+      resp should be(consumerMetadataResp)
     }
 
 }
