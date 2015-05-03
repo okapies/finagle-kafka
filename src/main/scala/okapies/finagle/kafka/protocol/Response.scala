@@ -115,6 +115,9 @@ case class ConsumerMetadataResult(
   port: Int           // int32
 )
 
+// NilResponse, used by server to indicate that no response is needed
+case class NilResponse(correlationId:Int) extends Response
+
 /**
  * A message frame for responses.
  */

@@ -50,8 +50,9 @@ extends GenSerialServerDispatcher[Request, Response, Response, Request](trans) {
       Future.exception(new IllegalArgumentException(s"Invalid message $failure"))
   }
 
-  protected def handle(resp: Response) = {
-    trans.write(resp)
+  protected def handle(resp: Response) = resp match {
+    case r:NilResponse => Future.Unit
+    case anyResp => trans.write(resp)
   }
 }
 
