@@ -1,6 +1,6 @@
 package okapies.finagle.kafka.protocol
 
-import org.jboss.netty.buffer.ChannelBuffer
+import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
 import org.jboss.netty.channel.{Channel, ChannelHandlerContext}
 import org.jboss.netty.handler.codec.oneone.{OneToOneEncoder, OneToOneDecoder}
 
@@ -276,6 +276,211 @@ class ResponseEncoder extends OneToOneEncoder {
 
   import Spec._
 
-  def encode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef) = msg
+  override def encode(ctx: ChannelHandlerContext, channel: Channel, msg: Any) = msg match {
+    case resp: MetadataResponse => encodeMetadataResponse(resp)
+    case resp: ProduceResponse => encodeProduceResponse(resp)
+    case resp: OffsetResponse => encodeOffsetResponse(resp)
+    case resp: FetchResponse => encodeFetchResponse(resp)
+    case resp: OffsetCommitResponse => encodeOffsetCommitResponse(resp)
+    case resp: OffsetFetchResponse => encodeOffsetFetchResponse(resp)
+    case resp: ConsumerMetadataResponse => encodeConsumerMetadataResponse(resp)
+  }
 
+  private def encodeResponseHeader(buf: ChannelBuffer, resp: Response) {
+    buf.encodeInt32(resp.correlationId) // CorrelationId => int32
+  }
+
+  private def encodeBroker(buf: ChannelBuffer, broker: Broker) {
+    buf.encodeInt32(broker.nodeId)
+    buf.encodeString(broker.host)
+    buf.encodeInt32(broker.port)
+  }
+
+  /**
+   * {{{
+   * MetadataResponse => [Broker][TopicMetadata]
+   *   Broker => NodeId Host Port
+   *   TopicMetadata => TopicErrorCode TopicName [PartitionMetadata]
+   *     PartitionMetadata => PartitionErrorCode PartitionId Leader [Replicas] [Isr]
+   * }}}
+   */
+  private def encodeMetadataResponse(resp: MetadataResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    //  [Broker]
+    buf.encodeArray(resp.brokers) { broker =>
+      encodeBroker(buf, broker)
+    }
+
+    // [TopicMetadata]
+
+    buf.encodeArray(resp.topics) { topic =>
+      buf.encodeInt16(topic.error.code)
+      buf.encodeString(topic.name)
+
+      // [PartitionMetadata]
+      buf.encodeArray(topic.partitions) { partition =>
+        buf.encodeInt16(partition.error.code)
+        buf.encodeInt32(partition.id)
+
+        // id of leader broker or -1 if during leader election
+        val leaderId = partition.leader.map(_.nodeId).getOrElse(-1)
+        buf.encodeInt32(leaderId)
+
+        buf.encodeArray(partition.replicas) { broker =>
+          buf.encodeInt32(broker.nodeId)
+        }
+
+        buf.encodeArray(partition.isr) { broker =>
+          buf.encodeInt32(broker.nodeId)
+        }
+      }
+    }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * ProduceResponse => [TopicName [Partition ErrorCode Offset]]
+   * }}}
+   */
+  private def encodeProduceResponse(resp: ProduceResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeArray(resp.results) { case (topic, partitions) =>
+      buf.encodeString(topic)
+
+      buf.encodeArray(partitions) { case (id, partition) =>
+        buf.encodeInt32(id)
+        buf.encodeInt16(partition.error.code)
+        buf.encodeInt64(partition.offset)
+      }
+    }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * OffsetResponse => [TopicName [PartitionOffsets]]
+   * }}}
+   */
+  private def encodeOffsetResponse(resp: OffsetResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeArray(resp.results) { case (topic, partitions) =>
+      buf.encodeString(topic)
+
+      buf.encodeArray(partitions) { case (partition, offsetResults) =>
+        buf.encodeInt32(partition)
+        buf.encodeInt16(offsetResults.error.code)
+
+        buf.encodeArray(offsetResults.offsets) { case offset =>
+          buf.encodeInt64(offset)
+        }
+      }
+    }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * FetchResponse => [TopicName [Partition ErrorCode HighwaterMarkOffset MessageSetSize MessageSet]]
+   * }}}
+   */
+  private def encodeFetchResponse(resp: FetchResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeArray(resp.results) { case (topic, partitions) =>
+      buf.encodeString(topic)
+
+      buf.encodeArray(partitions) { case (partition, fetchResult) =>
+        buf.encodeInt32(partition)
+
+        buf.encodeInt16(fetchResult.error.code)
+        buf.encodeInt64(fetchResult.highwaterMarkOffset)
+
+        buf.encodeMessageSetWithOffset(fetchResult.messages) { msg =>
+          buf.encodeInt64(msg.offset)
+          buf.encodeBytes(msg.message.underlying)
+        }
+      }
+    }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * OffsetCommitResponse => [TopicName [Partition ErrorCode]]]
+   * }}}
+   */
+  private def encodeOffsetCommitResponse(resp: OffsetCommitResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeArray(resp.results) { case (topic, partitions) =>
+      buf.encodeString(topic)
+
+      buf.encodeArray(partitions) { case (partition, commitResult) =>
+        buf.encodeInt32(partition)
+        buf.encodeInt16(commitResult.error.code)
+      }
+    }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * OffsetFetchResponse => [TopicName [Partition Offset Metadata ErrorCode]]
+   * }}}
+   */
+  private def encodeOffsetFetchResponse(resp: OffsetFetchResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeArray(resp.results) { case (topic, partitions) =>
+      buf.encodeString(topic)
+
+      buf.encodeArray(partitions) { case (partition, fetchResult) =>
+        buf.encodeInt32(partition)
+        buf.encodeInt64(fetchResult.offset)
+        buf.encodeString(fetchResult.metadata)
+        buf.encodeInt16(fetchResult.error.code)
+      }
+    }
+
+    buf
+  }
+
+  /**
+   * {{{
+   * ConsumerMetadataResponse => ErrorCode CoordinatorId CoordinatorHost CoordinatorPort
+   * }}}
+   */
+  private def encodeConsumerMetadataResponse(resp: ConsumerMetadataResponse) = {
+    val buf = ChannelBuffers.dynamicBuffer()
+
+    encodeResponseHeader(buf, resp)
+
+    buf.encodeInt16(resp.result.error.code)
+    buf.encodeInt32(resp.result.id)
+    buf.encodeString(resp.result.host)
+    buf.encodeInt32(resp.result.port)
+
+    buf
+  }
 }

@@ -73,6 +73,15 @@ class KafkaServerPipelineFactory extends ChannelPipelineFactory {
   def getPipeline() = {
     val pipeline = Channels.pipeline()
 
+    // decoders (upstream)
+    pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Int.MaxValue, 0, 4, 0, 4))
+    // actual request to server
+    pipeline.addLast("requestDecoder", new RequestDecoder())
+
+    // encoders (downstream)
+    pipeline.addLast("frameEncoder", new LengthFieldPrepender(4))
+    pipeline.addLast("responseEncoder", new ResponseEncoder())
+
     pipeline
   }
 }
