@@ -51,7 +51,7 @@ extends GenSerialServerDispatcher[Request, Response, Response, Request](trans) {
   }
 
   protected def handle(resp: Response) = resp match {
-    case r:NilResponse => Future.Unit
+    case r: NilResponse => Future.Unit // write no response to the transport
     case anyResp => trans.write(resp)
   }
 }

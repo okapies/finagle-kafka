@@ -269,14 +269,11 @@ object ResponseDecoder {
   }
 }
 
-/**
- *  TODO: Not implemented yet.
- */
 class ResponseEncoder extends OneToOneEncoder {
 
   import Spec._
 
-  override def encode(ctx: ChannelHandlerContext, channel: Channel, msg: Any) = msg match {
+  override def encode(ctx: ChannelHandlerContext, channel: Channel, msg: Any): AnyRef = msg match {
     case resp: MetadataResponse => encodeMetadataResponse(resp)
     case resp: ProduceResponse => encodeProduceResponse(resp)
     case resp: OffsetResponse => encodeOffsetResponse(resp)

@@ -5,34 +5,32 @@ import org.jboss.netty.channel._
 import org.jboss.netty.channel.Channels._
 import org.jboss.netty.handler.codec.oneone.OneToOneDecoder
 
-/**
- *  TODO: Not implemented yet.
- */
 class RequestDecoder extends OneToOneDecoder {
 
   import Spec._
 
-  def decode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef) = msg match {
-    case frame: ChannelBuffer =>
-      val (apiKey, version, correlationId, clientId) = decodeRequestHeader(frame)
+  override protected def decode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef): AnyRef =
+    msg match {
+      case frame: ChannelBuffer =>
+        val (apiKey, version, correlationId, clientId) = decodeRequestHeader(frame)
 
-      apiKey match {
-        case ApiKeyProduce => decodeProduceRequest(correlationId, clientId, frame)
-        case ApiKeyFetch => decodeFetchRequest(correlationId, clientId, frame)
-        case ApiKeyOffset => decodeOffsetRequest(correlationId, clientId, frame)
-        case ApiKeyMetadata => decodeMetadataRequest(correlationId, clientId, frame)
-        case ApiKeyLeaderAndIsr => null
-        case ApiKeyStopReplica => null
-        case ApiKeyOffsetCommit =>
-          version match {
-            case 0 => decodeOffsetCommitRequestV0(correlationId, clientId, frame)
-            case _ => null // not yet supporting v1, v2
-          }
+        apiKey match {
+          case ApiKeyProduce => decodeProduceRequest(correlationId, clientId, frame)
+          case ApiKeyFetch => decodeFetchRequest(correlationId, clientId, frame)
+          case ApiKeyOffset => decodeOffsetRequest(correlationId, clientId, frame)
+          case ApiKeyMetadata => decodeMetadataRequest(correlationId, clientId, frame)
+          case ApiKeyLeaderAndIsr => null // TODO: not implemented yet
+          case ApiKeyStopReplica => null  // TODO: not implemented yet
+          case ApiKeyOffsetCommit =>
+            version match {
+              case 0 => decodeOffsetCommitRequestV0(correlationId, clientId, frame)
+              case _ => null // not yet supporting v1, v2
+            }
 
-        case ApiKeyOffsetFetch => decodeOffsetFetchRequest(correlationId, clientId, frame)
-        case ApiKeyConsumerMetadata => decodeConsumerMetadataRequest(correlationId, clientId, frame)
-      }
-  }
+          case ApiKeyOffsetFetch => decodeOffsetFetchRequest(correlationId, clientId, frame)
+          case ApiKeyConsumerMetadata => decodeConsumerMetadataRequest(correlationId, clientId, frame)
+        }
+    }
 
   private def decodeRequestHeader(buf: ChannelBuffer): (Short, Short, Int, String) = {
     val apiKey = buf.decodeInt16()
