@@ -8,25 +8,27 @@ organizationHomepage := Some(url("https://github.com/okapies"))
 
 version := "0.2.1-SNAPSHOT"
 
-scalaVersion := "2.10.4"
+scalaVersion := "2.11.7"
+
+crossScalaVersions := Seq("2.10.5", "2.11.7")
 
 net.virtualvoid.sbt.graph.Plugin.graphSettings
 
 libraryDependencies ++= List(
-  "com.twitter" % "finagle-core_2.10" % "6.24.0",
-  "org.apache.kafka" % "kafka_2.10" % "0.8.2.1"
+  "com.twitter" %% "finagle-core" % "6.26.0",
+  "org.apache.kafka" %% "kafka" % "0.8.2.1"
     exclude("com.101tec", "zkclient")
     exclude("com.yammer.metrics", "metrics-core")
     exclude("net.sf.jopt-simple", "jopt-simple")
     exclude("org.apache.zookeeper", "zookeeper")
     exclude("org.xerial.snappy", "snappy-java"),
-  "org.scalatest" % "scalatest_2.10" % "2.1.7" % "test",
+  "org.scalatest" %% "scalatest" % "2.2.4" % "test",
   // dependencies for kafka-test
   "junit" % "junit" % "4.11" % "test",
   "org.apache.curator" % "curator-test" % "2.7.1" % "test",
   "com.101tec" % "zkclient" % "0.4" % "test",
   "com.yammer.metrics" % "metrics-core" % "2.2.0" % "test",
-  "org.apache.kafka" % "kafka_2.10" % "0.8.2.1" % "test" classifier "test"
+  "org.apache.kafka" %% "kafka" % "0.8.2.1" % "test" classifier "test"
 )
 
 publishTo := {
