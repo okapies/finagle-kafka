@@ -142,7 +142,7 @@ with BeforeAndAfterEach {
 
       resp should be(produceResp)
     }
- 
+
     it should "respond to fetch requests" in {
       val resp = result(client(FetchRequest(0, ClientId, 0, 0, 0,
         Map(Topic -> Map(0 -> FetchOffset(0, 1))))))

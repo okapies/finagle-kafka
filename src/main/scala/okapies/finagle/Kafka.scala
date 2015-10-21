@@ -64,6 +64,8 @@ with Server[Request, Response] {
 
   def newClient(dest: Name, label: String) = KafkaClient.newClient(dest, label)
 
+  def newService(dest: Name, label: String) = KafkaClient.newService(dest, label)
+
   class Server() extends DefaultServer[Request, Response, Response, Request](
     "kafka-server",
     new Netty3Listener(
