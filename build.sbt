@@ -15,7 +15,7 @@ crossScalaVersions := Seq("2.10.5", "2.11.7")
 net.virtualvoid.sbt.graph.Plugin.graphSettings
 
 libraryDependencies ++= List(
-  "com.twitter" %% "finagle-core" % "6.27.0",
+  "com.twitter" %% "finagle-core" % "6.30.0",
   "org.apache.kafka" %% "kafka" % "0.8.2.1"
     exclude("com.101tec", "zkclient")
     exclude("com.yammer.metrics", "metrics-core")
