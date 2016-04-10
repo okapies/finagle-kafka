@@ -15,7 +15,7 @@ retries and bunch of statistics for monitoring and diagnostics.*
 
 ## Setup
 ```
-libraryDependencies += "com.github.okapies" % "finagle-kafka_2.10" % "0.2.0"
+libraryDependencies += "com.github.okapies" %% "finagle-kafka" % "0.2.1"
 ```
 
 ## Usage
