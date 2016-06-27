@@ -142,7 +142,10 @@ class KafkaCodecFactory(stats: StatsReceiver) extends CodecFactory[Request, Resp
       new Codec[Request, Response] {
         def pipelineFactory = KafkaStreamClientPipelineFactory
 
-        override def prepareConnFactory(underlying: ServiceFactory[Request, Response]) = {
+        override def prepareConnFactory(
+          underlying: ServiceFactory[Request, Response],
+          params: Stack.Params
+        ): ServiceFactory[Request, Response] = {
           new KafkaTracingFilter() andThen new KafkaLoggingFilter(stats) andThen underlying
         }
       }
