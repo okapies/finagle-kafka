@@ -21,20 +21,6 @@ trait KafkaRichClient { self: Client[Request, Response] =>
 
 }
 
-/*
-object KafkaTransporter extends Netty3Transporter[Request, Response](
-  name = "kafka",
-  pipelineFactory = KafkaBatchClientPipelineFactory
-)
-
-object KafkaClient extends DefaultClient[Request, Response](
-  name = "kafka",
-  endpointer =
-    Bridge[Request, Response, Request, Response](KafkaTransporter, new PipeliningDispatcher(_)),
-  pool = (sr: StatsReceiver) => new SingletonPool(_, sr)
-) with KafkaRichClient
-*/
-
 object Kafka
 extends Client[Request, Response]
 with KafkaRichClient
