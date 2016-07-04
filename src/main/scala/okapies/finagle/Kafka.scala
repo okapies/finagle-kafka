@@ -1,9 +1,9 @@
 package okapies.finagle
 
-import com.twitter.util.{Future, Promise}
-import com.twitter.finagle.{Client, Name, Server, Service, ServiceFactory}
-import com.twitter.finagle.client.{Bridge, DefaultClient}
-import com.twitter.finagle.server.DefaultServer
+import com.twitter.util.{Closable, Future, Promise}
+import com.twitter.finagle._
+import com.twitter.finagle.client.{StackClient, Transporter, StdStackClient}
+import com.twitter.finagle.server.{StackServer, StdStackServer, Listener}
 import com.twitter.finagle.dispatch.{PipeliningDispatcher, GenSerialServerDispatcher}
 import com.twitter.finagle.netty3.{Netty3Transporter, Netty3Listener}
 import com.twitter.finagle.pool.SingletonPool
@@ -21,61 +21,87 @@ trait KafkaRichClient { self: Client[Request, Response] =>
 
 }
 
-object KafkaTransporter extends Netty3Transporter[Request, Response](
-  name = "kafka",
-  pipelineFactory = KafkaBatchClientPipelineFactory
-)
-
-object KafkaClient extends DefaultClient[Request, Response](
-  name = "kafka",
-  endpointer =
-    Bridge[Request, Response, Request, Response](KafkaTransporter, new PipeliningDispatcher(_)),
-  pool = (sr: StatsReceiver) => new SingletonPool(_, sr)
-) with KafkaRichClient
-
-class KafkaServerDispatcher(
-  trans: Transport[Response, Request],
-  service: Service[Request, Response])
-extends GenSerialServerDispatcher[Request, Response, Response, Request](trans) {
-
-  trans.onClose ensure {
-    service.close()
-  }
-
-  protected def dispatch(msg: Request, eos: Promise[Unit]) = msg match {
-    case req: Request =>
-      service(req) ensure eos.setDone()
-    case failure =>
-      eos.setDone
-      Future.exception(new IllegalArgumentException(s"Invalid message $failure"))
-  }
-
-  protected def handle(resp: Response) = resp match {
-    case r: NilResponse => Future.Unit // write no response to the transport
-    case anyResp => trans.write(resp)
-  }
-}
-
-
 object Kafka
 extends Client[Request, Response]
 with KafkaRichClient
 with Server[Request, Response] {
 
-  def newClient(dest: Name, label: String) = KafkaClient.newClient(dest, label)
+  case class Client(
+    stack: Stack[ServiceFactory[Request, Response]] = StackClient.newStack,
+    params: Stack.Params = StackClient.defaultParams
+  ) extends StdStackClient[Request, Response, Client] {
+    protected type In = Request
+    protected type Out = Response
 
-  def newService(dest: Name, label: String) = KafkaClient.newService(dest, label)
+    protected def copy1(
+      stack: Stack[ServiceFactory[Request, Response]],
+      params: Stack.Params): Client =
+      copy(stack, params)
 
-  class Server() extends DefaultServer[Request, Response, Response, Request](
-    "kafka-server",
-    new Netty3Listener(
-      "kafka-server-listener",
-      new KafkaServerPipelineFactory
-    ),
-    new KafkaServerDispatcher(_, _)
-  )
+    protected def newTransporter(): Transporter[Request, Response] =
+      Netty3Transporter(KafkaBatchClientPipelineFactory, params)
 
-  private val server = new Server()
+    protected def newDispatcher(
+      transport: Transport[Request, Response]): Service[Request, Response] =
+      new PipeliningDispatcher(transport)
+  }
+
+
+  val client = Client()
+
+  def newClient(dest: Name, label: String): ServiceFactory[Request, Response] =
+    client.newClient(dest, label)
+
+  def newService(dest: Name, label: String): Service[Request, Response] =
+    client.newService(dest, label)
+
+
+  private[finagle] class KafkaServerDispatcher(
+    trans: Transport[Response, Request],
+    service: Service[Request, Response])
+  extends GenSerialServerDispatcher[Request, Response, Response, Request](trans) {
+
+    trans.onClose ensure {
+      service.close()
+    }
+
+    protected def dispatch(msg: Request, eos: Promise[Unit]): Future[Response] = msg match {
+      case req: Request =>
+        service(req) ensure eos.setDone()
+      case failure =>
+        eos.setDone
+        Future.exception(new IllegalArgumentException(s"Invalid message $failure"))
+    }
+
+    protected def handle(resp: Response): Future[Unit] = resp match {
+      case r: NilResponse => Future.Unit // write no response to the transport
+      case anyResp => trans.write(resp)
+    }
+  }
+
+
+  case class Server(
+    stack: Stack[ServiceFactory[Request, Response]] = StackServer.newStack,
+    params: Stack.Params = StackServer.defaultParams
+  ) extends StdStackServer[Request, Response, Server] {
+    protected type In = Response
+    protected type Out = Request
+
+    protected def copy1(
+      stack: Stack[ServiceFactory[Request, Response]],
+      params: Stack.Params): Server =
+      copy(stack, params)
+
+    protected def newListener(): Listener[In, Out] =
+      Netty3Listener(new KafkaServerPipelineFactory, params)
+
+    protected def newDispatcher(
+      transport: Transport[In, Out],
+      service: Service[Request, Response]): Closable =
+      new KafkaServerDispatcher(transport, service)
+  }
+
+  val server = Server()
 
   def serve(addr: SocketAddress, service: ServiceFactory[Request, Response]) =
     server.serve(addr, service)
