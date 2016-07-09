@@ -6,7 +6,7 @@ organization := "com.github.okapies"
 
 organizationHomepage := Some(url("https://github.com/okapies"))
 
-version := "0.2.2-SNAPSHOT"
+version := "0.2.3-SNAPSHOT"
 
 scalaVersion := "2.11.8"
 
