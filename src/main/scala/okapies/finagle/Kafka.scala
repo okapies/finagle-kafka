@@ -4,7 +4,7 @@ import com.twitter.util.{Closable, Future, Promise}
 import com.twitter.finagle._
 import com.twitter.finagle.client.{StackClient, Transporter, StdStackClient}
 import com.twitter.finagle.server.{StackServer, StdStackServer, Listener}
-import com.twitter.finagle.dispatch.{PipeliningDispatcher, GenSerialServerDispatcher}
+import com.twitter.finagle.dispatch.{SerialClientDispatcher, GenSerialServerDispatcher}
 import com.twitter.finagle.netty3.{Netty3Transporter, Netty3Listener}
 import com.twitter.finagle.pool.SingletonPool
 import com.twitter.finagle.transport.Transport
@@ -38,12 +38,12 @@ with Server[Request, Response] {
       params: Stack.Params): Client =
       copy(stack, params)
 
-    protected def newTransporter(): Transporter[Request, Response] =
-      Netty3Transporter(KafkaBatchClientPipelineFactory, params)
+    protected def newTransporter(addr: SocketAddress): Transporter[Request, Response] =
+      Netty3Transporter(KafkaBatchClientPipelineFactory, addr, params)
 
     protected def newDispatcher(
       transport: Transport[Request, Response]): Service[Request, Response] =
-      new PipeliningDispatcher(transport)
+      new SerialClientDispatcher(transport)
   }
 
 
