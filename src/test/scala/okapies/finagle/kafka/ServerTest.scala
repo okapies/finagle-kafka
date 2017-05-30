@@ -120,14 +120,14 @@ with BeforeAndAfterEach {
   var server: ListeningServer = _
   var rand = new scala.util.Random()
 
-  private def newAddr:String = {
+  private def newAddr: String = {
     s":${10000 + rand.nextInt(1000)}"
   }
 
   override def beforeEach = {
     val addr = newAddr
     server = Kafka.serve(addr, service)
-    client = Kafka.newService(server)
+    client = Kafka.newService(addr)
   }
 
   override def afterEach = {

@@ -11,6 +11,7 @@ import org.jboss.netty.buffer.ChannelBuffers
 
 class MessageSetTest extends FlatSpec with Matchers {
 
+  import kafka.common.LongRef
   import kafka.message.{
     ByteBufferMessageSet,
     Message => KafkaMessage,
@@ -65,9 +66,9 @@ class MessageSetTest extends FlatSpec with Matchers {
   it should "decode bytes into a MessageSet" in {
     val kafkaMsgs1 = new ByteBufferMessageSet(
       NoCompressionCodec,
-      new AtomicLong(1),
-      new KafkaMessage("value1".getBytes(utf8), "key1".getBytes(utf8)),
-      new KafkaMessage("value2".getBytes(utf8), "key2".getBytes(utf8))
+      new LongRef(1L),
+      kafkaMessage("value1".getBytes(utf8), "key1".getBytes(utf8)),
+      kafkaMessage("value2".getBytes(utf8), "key2".getBytes(utf8))
     )
     val size1 = kafkaMsgs1.sizeInBytes
     val buf1 = ByteBuffer.allocateDirect(4 /* Size */ + size1)
@@ -93,9 +94,9 @@ class MessageSetTest extends FlatSpec with Matchers {
   it should "decode bytes including a partial message into a MessageSet" in {
     val kafkaMsgs1 = new ByteBufferMessageSet(
       NoCompressionCodec,
-      new AtomicLong(1),
-      new KafkaMessage("value1".getBytes(utf8), "key1".getBytes(utf8)),
-      new KafkaMessage("value2".getBytes(utf8), "key2".getBytes(utf8))
+      new LongRef(1L),
+      kafkaMessage("value1".getBytes(utf8), "key1".getBytes(utf8)),
+      kafkaMessage("value2".getBytes(utf8), "key2".getBytes(utf8))
     )
     val size1 = kafkaMsgs1.sizeInBytes - 5 // make 2nd message partial
     val buf1 = ByteBuffer.allocateDirect(4 /* Size */ + size1)

@@ -5,14 +5,16 @@ import org.scalatest.matchers._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Span, Seconds, Millis}
 
+import java.io.File
 import java.util.Properties
 import java.nio.charset.Charset
 
 import com.twitter.util.Await
 import _root_.kafka.admin.AdminUtils
-import _root_.kafka.utils.{Utils, TestUtils, ZKStringSerializer}
+import _root_.kafka.utils.{TestUtils, ZkUtils}
 import _root_.kafka.server.{KafkaConfig, KafkaServer}
 import org.apache.curator.test.TestingServer
+import org.apache.kafka.common.utils.Utils
 import org.jboss.netty.buffer.ChannelBuffers
 import org.I0Itec.zkclient.ZkClient
 
@@ -31,6 +33,7 @@ trait KafkaTest extends BeforeAndAfterAll { suite: Suite =>
 
   var zkServer: TestingServer = _
   var zkClient: ZkClient = _
+  var zkUtils: ZkUtils = _
   var kafkaServer: KafkaServer = _
   var kafkaConn: String = _
   var kafkaConfig: Properties = _
@@ -40,8 +43,7 @@ trait KafkaTest extends BeforeAndAfterAll { suite: Suite =>
 
     val zkConn = zkServer.getConnectString
 
-    kafkaConfig = TestUtils.createBrokerConfig(1)
-    kafkaConfig.put("zookeeper.connect", zkConn)
+    kafkaConfig = TestUtils.createBrokerConfig(1, zkConn)
     kafkaConfig.put("host.name", "127.0.0.1")
 
     // https://github.com/apache/kafka/blob/0.8.2/core/src/test/scala/unit/
@@ -50,15 +52,16 @@ trait KafkaTest extends BeforeAndAfterAll { suite: Suite =>
     kafkaConn = s"""${kafkaConfig.get("host.name")}:${kafkaConfig.get("port")}"""
     kafkaServer = TestUtils.createServer(new KafkaConfig(kafkaConfig))
 
-    zkClient = new ZkClient(zkConn, 5000, 5000, ZKStringSerializer)
+    zkClient = ZkUtils.createZkClient(zkConn, 5000, 5000)
+    zkUtils = ZkUtils(zkClient, isZkSecurityEnabled = false)
   }
 
   override def afterAll {
     kafkaServer.shutdown()
-    Utils.rm(kafkaConfig.getProperty("log.dir"))
+    Utils.delete(new File(kafkaConfig.getProperty("log.dir")))
     zkClient.close()
     zkServer.stop()
-    Utils.rm(zkServer.getTempDirectory)
+    Utils.delete(zkServer.getTempDirectory)
   }
 
 }
@@ -89,10 +92,10 @@ with KafkaTest {
     client = Kafka.newRichClient(kafkaConn)
 
     //  create the topic for testing
-    AdminUtils.createTopic(zkClient, topic, 1, 1, new Properties)
+    AdminUtils.createTopic(zkUtils, topic, 1, 1, new Properties)
 
     // Make sure the topic leader is available before running tests
-    TestUtils.waitUntilLeaderIsElectedOrChanged(zkClient, topic, 0, 1000)
+    TestUtils.waitUntilLeaderIsElectedOrChanged(zkUtils, topic, 0, 1000)
   }
 
   "A kafka client" should "return metadata" in {

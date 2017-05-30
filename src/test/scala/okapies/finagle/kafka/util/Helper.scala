@@ -8,6 +8,10 @@ import java.nio.charset.Charset
 object Helper {
 
   import scala.language.implicitConversions
+  import kafka.message.{
+    Message => KafkaMessage,
+    NoCompressionCodec
+  }
 
   val utf8 = Charset.forName("UTF-8")
 
@@ -21,5 +25,13 @@ object Helper {
       new String(value, utf8)
     }
   }
+
+  def kafkaMessage(bytes: Array[Byte], key: Array[Byte]) = new KafkaMessage(
+    bytes      = bytes,
+    key        = key,
+    timestamp  = KafkaMessage.NoTimestamp,
+    codec      = NoCompressionCodec,
+    magicValue = KafkaMessage.CurrentMagicValue
+  )
 
 }
