@@ -127,7 +127,7 @@ with BeforeAndAfterEach {
   override def beforeEach = {
     val addr = newAddr
     server = Kafka.serve(addr, service)
-    client = Kafka.newService(server)
+    client = Kafka.client.newService(addr)
   }
 
   override def afterEach = {

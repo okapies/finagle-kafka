@@ -7,7 +7,7 @@ import com.twitter.finagle.server.{StackServer, StdStackServer, Listener}
 import com.twitter.finagle.dispatch.{SerialClientDispatcher, GenSerialServerDispatcher}
 import com.twitter.finagle.netty3.{Netty3Transporter, Netty3Listener}
 import com.twitter.finagle.pool.SingletonPool
-import com.twitter.finagle.transport.Transport
+import com.twitter.finagle.transport.{Transport, TransportContext}
 import com.twitter.finagle.stats.StatsReceiver
 import java.net.SocketAddress
 
@@ -32,17 +32,19 @@ with Server[Request, Response] {
   ) extends StdStackClient[Request, Response, Client] {
     protected type In = Request
     protected type Out = Response
+    protected type Context = TransportContext
 
     protected def copy1(
       stack: Stack[ServiceFactory[Request, Response]],
       params: Stack.Params): Client =
       copy(stack, params)
 
-    protected def newTransporter(addr: SocketAddress): Transporter[Request, Response] =
+    protected def newTransporter(addr: SocketAddress): Transporter[Request, Response, TransportContext] =
       Netty3Transporter(KafkaBatchClientPipelineFactory, addr, params)
 
     protected def newDispatcher(
-      transport: Transport[Request, Response]): Service[Request, Response] =
+      transport: Transport[Request, Response] { type Context <: Client.this.Context }
+    ): Service[Request, Response] =
       new SerialClientDispatcher(transport)
   }
 
@@ -86,17 +88,18 @@ with Server[Request, Response] {
   ) extends StdStackServer[Request, Response, Server] {
     protected type In = Response
     protected type Out = Request
+    protected type Context = TransportContext
 
     protected def copy1(
       stack: Stack[ServiceFactory[Request, Response]],
       params: Stack.Params): Server =
       copy(stack, params)
 
-    protected def newListener(): Listener[In, Out] =
+    protected def newListener(): Listener[In, Out, TransportContext] =
       Netty3Listener(new KafkaServerPipelineFactory, params)
 
     protected def newDispatcher(
-      transport: Transport[In, Out],
+      transport: Transport[In, Out] { type Context <: Server.this.Context },
       service: Service[Request, Response]): Closable =
       new KafkaServerDispatcher(transport, service)
   }
