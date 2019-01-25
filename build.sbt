@@ -8,13 +8,13 @@ organizationHomepage := Some(url("https://github.com/okapies"))
 
 version := "0.2.3-SNAPSHOT"
 
-scalaVersion := "2.11.11"
+scalaVersion := "2.11.12"
 
-crossScalaVersions := Seq("2.10.5", "2.11.11")
+crossScalaVersions := Seq("2.11.12")
 
 libraryDependencies ++= List(
-  "com.twitter" %% "finagle-core" % "18.8.0",
-  "com.twitter" %% "finagle-netty3" % "18.8.0",
+  "com.twitter" %% "finagle-core" % "19.1.0",
+  "com.twitter" %% "finagle-netty3" % "19.1.0",
   "org.apache.kafka" %% "kafka" % "0.8.2.1"
     exclude("com.101tec", "zkclient")
     exclude("com.yammer.metrics", "metrics-core")
@@ -24,8 +24,8 @@ libraryDependencies ++= List(
   "org.scalatest" %% "scalatest" % "3.0.5" % "test",
   // dependencies for kafka-test
   "junit" % "junit" % "4.12" % "test",
-  "org.apache.curator" % "curator-test" % "2.12.0" % "test",
-  "com.101tec" % "zkclient" % "0.8" % "test",
+  "org.apache.curator" % "curator-test" % "4.1.0" % "test",
+  "com.101tec" % "zkclient" % "0.11" % "test",
   "com.yammer.metrics" % "metrics-core" % "2.2.0" % "test",
   "org.apache.kafka" %% "kafka" % "0.8.2.1" % "test" classifier "test"
 )
