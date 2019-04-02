@@ -1,38 +1,39 @@
 package okapies.finagle.kafka.protocol
 
-import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
-import org.jboss.netty.channel._
-import org.jboss.netty.channel.Channels._
-import org.jboss.netty.handler.codec.oneone.OneToOneDecoder
+import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.channel.{Channel, ChannelHandlerContext, ChannelOutboundHandlerAdapter, ChannelPromise, ChannelFutureListener, ChannelFuture}
+import io.netty.handler.codec.{MessageToMessageDecoder, MessageToMessageEncoder}
 
-class RequestDecoder extends OneToOneDecoder {
+import java.util.{List => JList}
+
+class RequestDecoder extends MessageToMessageDecoder[ByteBuf] {
 
   import Spec._
 
-  override protected def decode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef): AnyRef =
-    msg match {
-      case frame: ChannelBuffer =>
-        val (apiKey, version, correlationId, clientId) = decodeRequestHeader(frame)
+  def decode(ctx: ChannelHandlerContext, frame: ByteBuf, out: JList[AnyRef]): Unit = {
+    val (apiKey, version, correlationId, clientId) = decodeRequestHeader(frame)
 
-        apiKey match {
-          case ApiKeyProduce => decodeProduceRequest(correlationId, clientId, frame)
-          case ApiKeyFetch => decodeFetchRequest(correlationId, clientId, frame)
-          case ApiKeyOffset => decodeOffsetRequest(correlationId, clientId, frame)
-          case ApiKeyMetadata => decodeMetadataRequest(correlationId, clientId, frame)
-          case ApiKeyLeaderAndIsr => null // TODO: not implemented yet
-          case ApiKeyStopReplica => null  // TODO: not implemented yet
-          case ApiKeyOffsetCommit =>
-            version match {
-              case 0 => decodeOffsetCommitRequestV0(correlationId, clientId, frame)
-              case _ => null // not yet supporting v1, v2
-            }
-
-          case ApiKeyOffsetFetch => decodeOffsetFetchRequest(correlationId, clientId, frame)
-          case ApiKeyConsumerMetadata => decodeConsumerMetadataRequest(correlationId, clientId, frame)
+    val req = apiKey match {
+      case ApiKeyProduce => decodeProduceRequest(correlationId, clientId, frame)
+      case ApiKeyFetch => decodeFetchRequest(correlationId, clientId, frame)
+      case ApiKeyOffset => decodeOffsetRequest(correlationId, clientId, frame)
+      case ApiKeyMetadata => decodeMetadataRequest(correlationId, clientId, frame)
+      case ApiKeyLeaderAndIsr => null // TODO: not implemented yet
+      case ApiKeyStopReplica => null  // TODO: not implemented yet
+      case ApiKeyOffsetCommit =>
+        version match {
+          case 0 => decodeOffsetCommitRequestV0(correlationId, clientId, frame)
+          case _ => null // not yet supporting v1, v2
         }
+
+      case ApiKeyOffsetFetch => decodeOffsetFetchRequest(correlationId, clientId, frame)
+      case ApiKeyConsumerMetadata => decodeConsumerMetadataRequest(correlationId, clientId, frame)
     }
 
-  private def decodeRequestHeader(buf: ChannelBuffer): (Short, Short, Int, String) = {
+    out.add(req)
+  }
+
+  private def decodeRequestHeader(buf: ByteBuf): (Short, Short, Int, String) = {
     val apiKey = buf.decodeInt16()
     val version = buf.decodeInt16()
     val correlationId = buf.decodeInt32()
@@ -46,7 +47,7 @@ class RequestDecoder extends OneToOneDecoder {
    *   MessageSet => [Offset MessageSize Message]
    * }}}
    */
-  private def decodeProduceRequest(corrId: Int, clientId: String, frame: ChannelBuffer): ProduceRequest = {
+  private def decodeProduceRequest(corrId: Int, clientId: String, frame: ByteBuf): ProduceRequest = {
     val acks = RequiredAcks(frame.decodeInt16())
     val timeout = frame.decodeInt32()
 
@@ -72,7 +73,7 @@ class RequestDecoder extends OneToOneDecoder {
    * FetchRequest => ReplicaId MaxWaitTime MinBytes [TopicName [Partition FetchOffset MaxBytes]]
    * }}}
    */
-  private def decodeFetchRequest(corrId: Int, clientId: String, frame: ChannelBuffer): FetchRequest = {
+  private def decodeFetchRequest(corrId: Int, clientId: String, frame: ByteBuf): FetchRequest = {
     val replicaId = frame.decodeInt32()
     val maxWaitTime = frame.decodeInt32()
     val minBytes = frame.decodeInt32()
@@ -99,7 +100,7 @@ class RequestDecoder extends OneToOneDecoder {
    * OffsetRequest => ReplicaId [TopicName [Partition Time MaxNumberOfOffsets]]
    * }}}
    */
-  private def decodeOffsetRequest(corrId: Int, clientId: String, frame: ChannelBuffer): OffsetRequest = {
+  private def decodeOffsetRequest(corrId: Int, clientId: String, frame: ByteBuf): OffsetRequest = {
     val replicaId = frame.decodeInt32()
 
     val topicPartitions = frame.decodeArray {
@@ -124,7 +125,7 @@ class RequestDecoder extends OneToOneDecoder {
    * MetadataRequest => [TopicName]
    * }}}
    */
-  private def decodeMetadataRequest(corrId: Int, clientId: String, frame: ChannelBuffer): MetadataRequest = {
+  private def decodeMetadataRequest(corrId: Int, clientId: String, frame: ByteBuf): MetadataRequest = {
     val topics = frame.decodeArray {
       frame.decodeString()
     }
@@ -142,7 +143,7 @@ class RequestDecoder extends OneToOneDecoder {
   private def decodeOffsetCommitRequestV0(
     corrId: Int,
     clientId: String,
-    frame: ChannelBuffer): OffsetCommitRequest = {
+    frame: ByteBuf): OffsetCommitRequest = {
     
     val consumerGroup = frame.decodeString()
 
@@ -168,7 +169,7 @@ class RequestDecoder extends OneToOneDecoder {
    * OffsetFetchRequest => ConsumerGroup [TopicName [Partition]]
    * }}}
    */
-  private def decodeOffsetFetchRequest(corrId: Int, clientId: String, frame: ChannelBuffer): OffsetFetchRequest = {
+  private def decodeOffsetFetchRequest(corrId: Int, clientId: String, frame: ByteBuf): OffsetFetchRequest = {
     val consumerGroup = frame.decodeString()
 
     val topicPartitions = frame.decodeArray {
@@ -192,7 +193,7 @@ class RequestDecoder extends OneToOneDecoder {
   private def decodeConsumerMetadataRequest(
     corrId: Int,
     clientId: String,
-    frame: ChannelBuffer): ConsumerMetadataRequest = {
+    frame: ByteBuf): ConsumerMetadataRequest = {
 
     val consumerGroup = frame.decodeString()
 
@@ -202,14 +203,14 @@ class RequestDecoder extends OneToOneDecoder {
 
 }
 
-class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandler {
+class RequestEncoder(logger: RequestLogger) extends ChannelOutboundHandlerAdapter {
 
   import Spec._
 
-  override def writeRequested(ctx: ChannelHandlerContext, e: MessageEvent) {
-    e.getMessage match {
+  override def write(ctx: ChannelHandlerContext, msg: Any, promise: ChannelPromise) {
+    msg match {
       case req: Request =>
-        val buf = req match {
+        val buf = msg match {
           case req: ProduceRequest => encodeProduceRequest(req)
           case req: FetchRequest => encodeFetchRequest(req)
           case req: OffsetRequest => encodeOffsetRequest(req)
@@ -219,10 +220,9 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
           case req: ConsumerMetadataRequest => encodeConsumerMetadataRequest(req)
         }
 
-        logger.add(req)
+       logger.add(req)
 
-        val future = e.getFuture
-        future.addListener(new ChannelFutureListener {
+        promise.addListener(new ChannelFutureListener {
           def operationComplete(f: ChannelFuture) {
             if (!f.isSuccess) { // cancelled or failed
               logger.remove(req)
@@ -230,12 +230,17 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
           }
         })
 
-        write(ctx, future, buf, e.getRemoteAddress)
-      case _ => super.writeRequested(ctx, e) // fall through
+        ctx.writeAndFlush(buf, promise)
+      case _ => 
+        //super.writeRequested(ctx, e) // fall through
+        val ex = new KafkaCodecException("Failed to recognise outgoing request")
+        promise.setFailure(ex)
+        throw ex
+
     }
   }
 
-  private def encodeRequestHeader(buf: ChannelBuffer, apiKey: Short, req: Request) {
+  private def encodeRequestHeader(buf: ByteBuf, apiKey: Short, req: Request) {
     buf.encodeInt16(apiKey)            // Apikey => int16
     buf.encodeInt16(ApiVersion0)       // ApiVersion => int16
     buf.encodeInt32(req.correlationId) // CorrelationId => int32
@@ -248,8 +253,8 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
    *   MessageSet => [Offset MessageSize Message]
    * }}}
    */
-  private def encodeProduceRequest(req: ProduceRequest) = {
-    val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
+  private def encodeProduceRequest(req: ProduceRequest): ByteBuf = {
+    val buf = Unpooled.buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyProduce, req)
 
     // TODO: return empty response immediately if requiredAcks == 0
@@ -276,8 +281,8 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
    * FetchRequest => ReplicaId MaxWaitTime MinBytes [TopicName [Partition FetchOffset MaxBytes]]
    * }}}
    */
-  private def encodeFetchRequest(req: FetchRequest) = {
-    val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
+  private def encodeFetchRequest(req: FetchRequest): ByteBuf = {
+    val buf = Unpooled.buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyFetch, req)
 
     buf.encodeInt32(req.replicaId)
@@ -302,8 +307,8 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
    * OffsetRequest => ReplicaId [TopicName [Partition Time MaxNumberOfOffsets]]
    * }}}
    */
-  private def encodeOffsetRequest(req: OffsetRequest) = {
-    val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
+  private def encodeOffsetRequest(req: OffsetRequest): ByteBuf = {
+    val buf = Unpooled.buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyOffset, req)
 
     buf.encodeInt32(req.replicaId)
@@ -324,8 +329,8 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
    * MetadataRequest => [TopicName]
    * }}}
    */
-  private def encodeMetadataRequest(req: MetadataRequest) = {
-    val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
+  private def encodeMetadataRequest(req: MetadataRequest): ByteBuf = {
+    val buf = Unpooled.buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyMetadata, req)
 
     buf.encodeStringArray(req.topics) // [TopicName]
@@ -341,8 +346,8 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
    * OffsetCommitRequest => ConsumerGroup [TopicName [Partition Offset Metadata]]
    * }}}
    */
-  private def encodeOffsetCommitRequest(req: OffsetCommitRequest) = {
-    val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
+  private def encodeOffsetCommitRequest(req: OffsetCommitRequest): ByteBuf = {
+    val buf = Unpooled.buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyOffsetCommit, req)
 
     buf.encodeString(req.consumerGroup)
@@ -367,8 +372,8 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
    * OffsetFetchRequest => ConsumerGroup [TopicName [Partition]]
    * }}}
    */
-  private def encodeOffsetFetchRequest(req: OffsetFetchRequest) = {
-    val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
+  private def encodeOffsetFetchRequest(req: OffsetFetchRequest): ByteBuf = {
+    val buf = Unpooled.buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyOffsetFetch, req)
 
     buf.encodeString(req.consumerGroup)
@@ -390,8 +395,8 @@ class RequestEncoder(logger: RequestLogger) extends SimpleChannelDownstreamHandl
    * ConsumerMetadataRequest => ConsumerGroup
    * }}}
    */
-  private def encodeConsumerMetadataRequest(req: ConsumerMetadataRequest) = {
-    val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
+  private def encodeConsumerMetadataRequest(req: ConsumerMetadataRequest): ByteBuf = {
+    val buf = Unpooled.buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyConsumerMetadata, req)
 
     buf.encodeString(req.consumerGroup)

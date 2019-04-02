@@ -4,7 +4,7 @@ import java.util.zip.CRC32
 
 import scala.math.max
 
-import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
+import io.netty.buffer.{ByteBuf, Unpooled}
 
 /**
  * A message.
@@ -20,7 +20,7 @@ import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
  *
  * @param _underlying the underlying buffer of the message
  */
-class Message(private[this] val _underlying: ChannelBuffer) {
+class Message(private[this] val _underlying: ByteBuf) {
 
   import Message._
 
@@ -32,12 +32,12 @@ class Message(private[this] val _underlying: ChannelBuffer) {
 
   def attributes: Byte = _underlying.getByte(AttributesOffset)
 
-  def key: Option[ChannelBuffer] = _underlying.getInt(KeySizeOffset) match {
+  def key: Option[ByteBuf] = _underlying.getInt(KeySizeOffset) match {
     case keySize if keySize >= 0 => Some(_underlying.slice(KeyOffset, keySize))
     case _ => None
   }
 
-  def value: ChannelBuffer = {
+  def value: ByteBuf = {
     val keySize = _underlying.getInt(KeySizeOffset)
     val valueSizeOffset = KeyOffset + max(0, keySize)
     val valueSize = _underlying.getInt(valueSizeOffset)
@@ -49,7 +49,7 @@ class Message(private[this] val _underlying: ChannelBuffer) {
   /**
    * Creates a view of the underlying buffer with an independent readerIndex.
    */
-  def underlying: ChannelBuffer = _underlying.duplicate()
+  def underlying: ByteBuf = _underlying.duplicate()
 
   override def toString = "Message(size=%d, crc=%d, magicByte=%d, attributes=%d)"
     .format(size, crc, magicByte, attributes)
@@ -85,14 +85,14 @@ object Message {
   // Magic value
   final val CurrentMagicValue = 0: Int8
 
-  def apply(buffer: ChannelBuffer) = new Message(buffer)
+  def apply(buffer: ByteBuf) = new Message(buffer)
 
   def create(
-    value: ChannelBuffer,
-    key: Option[ChannelBuffer] = None,
+    value: ByteBuf,
+    key: Option[ByteBuf] = None,
     attributes: Byte = 0): Message = {
 
-    val buf = ChannelBuffers.dynamicBuffer() // TODO: estimatedLength
+    val buf = Unpooled.buffer() // TODO: estimatedLength
 
     // Message => Crc MagicByte Attributes Key Value
     buf.writerIndex(MagicOffset) // skip the Crc field
@@ -100,7 +100,7 @@ object Message {
     buf.encodeInt8(attributes)
     key match {
       case Some(b) => buf.encodeBytes(b)
-      case None => buf.encodeBytes(null: ChannelBuffer)
+      case None => buf.encodeBytes(null: ByteBuf)
     }
     buf.encodeBytes(value)
 
@@ -111,7 +111,7 @@ object Message {
     new Message(buf)
   }
 
-  private def computeCRC32(buf: ChannelBuffer, offset: Int, length: Int): Int32 = {
+  private def computeCRC32(buf: ByteBuf, offset: Int, length: Int): Int32 = {
     val crc = new CRC32()
 
     if (buf.hasArray) {

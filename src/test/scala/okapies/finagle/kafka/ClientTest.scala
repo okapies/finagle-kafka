@@ -13,7 +13,7 @@ import _root_.kafka.admin.AdminUtils
 import _root_.kafka.utils.{Utils, TestUtils, ZKStringSerializer}
 import _root_.kafka.server.{KafkaConfig, KafkaServer}
 import org.apache.curator.test.TestingServer
-import org.jboss.netty.buffer.ChannelBuffers
+import io.netty.buffer.Unpooled
 import org.I0Itec.zkclient.ZkClient
 
 import okapies.finagle.Kafka
@@ -22,8 +22,8 @@ import okapies.finagle.kafka.protocol.{KafkaError, Message}
 object ClientTestUtils {
   val UTF_8 = Charset.forName("UTF-8")
 
-  implicit class CBString(s:String) {
-    def cb = ChannelBuffers.copiedBuffer(s, UTF_8)
+  implicit class ByteBufString(s:String) {
+    def byteBuf = Unpooled.copiedBuffer(s, UTF_8)
   }
 }
 
@@ -75,7 +75,7 @@ with KafkaTest {
   var client:Client = _
   val topic = "finagle.kafka.test.topic"
   val group = "test-group"
-  val msg = Message.create("hello".cb)
+  val msg = Message.create("hello".byteBuf)
 
   override implicit val patienceConfig =
     PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(500, Millis)))
