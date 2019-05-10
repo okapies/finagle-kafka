@@ -113,18 +113,3 @@ object KafkaStreamClientPipelineFactory extends (ChannelPipeline => Unit) {
 
 }
 
-private class KafkaTracingFilter extends SimpleFilter[Request, Response] {
-
-  override def apply(request: Request, service: Service[Request, Response]) = service(request)
-
-}
-
-private class KafkaLoggingFilter(stats: StatsReceiver)
-  extends SimpleFilter[Request, Response] {
-
-  private[this] val error = stats.scope("error")
-  private[this] val succ  = stats.scope("success")
-
-  override def apply(request: Request, service: Service[Request, Response]) = service(request)
-
-}
