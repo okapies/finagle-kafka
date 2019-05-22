@@ -2,9 +2,11 @@ package okapies.finagle.kafka.protocol
 
 import scala.annotation.tailrec
 
-import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
-import org.jboss.netty.channel.{Channel, ChannelHandlerContext}
-import org.jboss.netty.handler.codec.replay.ReplayingDecoder
+import io.netty.buffer.{ByteBuf, ByteBufUtil}
+import io.netty.channel.{Channel, ChannelHandlerContext}
+import io.netty.handler.codec.ReplayingDecoder
+
+import java.util.{List => JList}
 
 import Spec._
 import KafkaFrameDecoderState._
@@ -12,7 +14,7 @@ import KafkaFrameDecoderState._
 class StreamFrameDecoder(
   correlator: RequestCorrelator,
   maxFrameLength: Int
-) extends ReplayingDecoder[KafkaFrameDecoderState](READ_HEADER, true /* unfold */) {
+) extends ReplayingDecoder[KafkaFrameDecoderState](READ_HEADER) {
 
   private[this] var size: Int32 = _
 
@@ -43,9 +45,8 @@ class StreamFrameDecoder(
   @tailrec
   override final def decode(
       ctx: ChannelHandlerContext,
-      channel: Channel,
-      buffer: ChannelBuffer,
-      state: KafkaFrameDecoderState): AnyRef = state match {
+      buffer: ByteBuf,
+      out: JList[AnyRef]): Unit = state() match {
     case READ_HEADER =>
       size = buffer.decodeInt32()          // int32
       val correlationId = buffer.decodeInt32() // int32
@@ -55,13 +56,13 @@ class StreamFrameDecoder(
           readSize = CorrelationIdLength
           checkpoint(READ_TOPIC_COUNT)
 
-          FetchResponseFrame(correlationId)
+          out.add(FetchResponseFrame(correlationId))
         case Some(apiKey) =>
           // read bytes without Size and CorrelationId
           val frame = buffer.readBytes(size - CorrelationIdLength)
           checkpoint(READ_HEADER) // back to init state
 
-          BufferResponseFrame(apiKey, correlationId, frame)
+          out.add(BufferResponseFrame(apiKey, correlationId, frame))
         case _ =>
           throw new KafkaCodecException("Unrecognized type of response correlated to the request.")
       }
@@ -75,7 +76,7 @@ class StreamFrameDecoder(
       readTopicCount = 0
       checkpoint(READ_TOPIC)
 
-      decode(ctx, channel, buffer, READ_TOPIC)
+      decode(ctx, buffer, out)
     case READ_TOPIC =>
       topicCount - readTopicCount match { // Topic
         case n if n > 0 =>
@@ -87,11 +88,11 @@ class StreamFrameDecoder(
           readTopicCount += 1
           checkpoint(READ_PARTITION_COUNT)
 
-          decode(ctx, channel, buffer, READ_PARTITION_COUNT)
+          decode(ctx, buffer, out)
         case n if n == 0 =>
-          setState(READ_HEADER) // back to init state
+          state(READ_HEADER) // back to init state
 
-          NilMessageFrame // indicates end of stream
+          out.add(NilMessageFrame) // indicates end of stream
         case _ =>
           throw new KafkaCodecException(
             "The response has illegal number of topics: expected=%d, actual=%d"
@@ -104,7 +105,7 @@ class StreamFrameDecoder(
       readPartitionCount = 0
       checkpoint(READ_PARTITION)
 
-      decode(ctx, channel, buffer, READ_PARTITION)
+      decode(ctx, buffer, out)
     case READ_PARTITION =>
       partitionCount - readPartitionCount match { // Partition
         case n if n > 0 =>
@@ -119,10 +120,10 @@ class StreamFrameDecoder(
           readPartitionCount += 1
           checkpoint(READ_MESSAGE_SET)
 
-          PartitionStatus(topicName, partition, errorCode, highwaterMarkOffset)
+          out.add(PartitionStatus(topicName, partition, errorCode, highwaterMarkOffset))
         case n if n == 0 =>
-          setState(READ_TOPIC)
-          decode(ctx, channel, buffer, READ_TOPIC)
+          state(READ_TOPIC)
+          decode(ctx, buffer, out)
         case _ =>
           throw new KafkaCodecException(
             "The response has illegal number of partitions: expected=%d, actual=%d"
@@ -135,7 +136,7 @@ class StreamFrameDecoder(
       readMessageSetSize = 0
       checkpoint(READ_MESSAGE)
 
-      decode(ctx, channel, buffer, READ_MESSAGE)
+      decode(ctx, buffer, out)
     case READ_MESSAGE =>
       messageSetSize - readMessageSetSize match { // MessageSet
         case n if n > 0 =>
@@ -151,24 +152,22 @@ class StreamFrameDecoder(
           size - readSize match {
             case n if n > 0 =>
               checkpoint() // continue
-
-              messageFrame
+          
+              out.add(messageFrame)
             case n if n == 0 =>
               checkpoint(READ_HEADER) // back to init state
 
-              // unfold by ReplayingDecoder
-              Array[ResponseFrame](
-                messageFrame,
-                NilMessageFrame // indicates end of stream
-              )
+              // output the frame and end of stream
+              out.add(messageFrame)
+              out.add(NilMessageFrame) // indicates end of stream
             case n if n < 0 =>
               throw new KafkaCodecException(
                 "The response has illegal size: expected=%d, actual=%d"
                   .format(size, readSize))
           }
         case n if n == 0 =>
-          setState(READ_PARTITION)
-          decode(ctx, channel, buffer, READ_PARTITION)
+          state(READ_PARTITION)
+          decode(ctx, buffer, out)
         case _ =>
           throw new KafkaCodecException(
             "The response has illegal MessageSet size: expected=%d, actual=%d"

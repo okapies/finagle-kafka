@@ -7,7 +7,7 @@ import org.scalatest.matchers._
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
 
-import org.jboss.netty.buffer.ChannelBuffers
+import io.netty.buffer.Unpooled
 
 class MessageSetTest extends FlatSpec with Matchers {
 
@@ -24,17 +24,17 @@ class MessageSetTest extends FlatSpec with Matchers {
   it should "encode a MessageSet to bytes" in {
     val msgs1 = Seq[Message](
       Message.create(
-        ChannelBuffers.wrappedBuffer("value1".getBytes(utf8)),
-        Some(ChannelBuffers.wrappedBuffer("key1".getBytes(utf8))),
+        Unpooled.wrappedBuffer("value1".getBytes(utf8)),
+        Some(Unpooled.wrappedBuffer("key1".getBytes(utf8))),
         0
       ),
       Message.create(
-        ChannelBuffers.wrappedBuffer("value2".getBytes(utf8)),
-        Some(ChannelBuffers.wrappedBuffer("key2".getBytes(utf8))),
+        Unpooled.wrappedBuffer("value2".getBytes(utf8)),
+        Some(Unpooled.wrappedBuffer("key2".getBytes(utf8))),
         0
       )
     )
-    val buf1 = ChannelBuffers.dynamicBuffer()
+    val buf1 = Unpooled.buffer()
     var i: Long = 1
     buf1.encodeMessageSet(msgs1) { message =>
       buf1.encodeInt64(i) // offset
@@ -44,7 +44,7 @@ class MessageSetTest extends FlatSpec with Matchers {
 
     val size1 = buf1.readableBytes
     val kafkaMsgs1 =
-      new ByteBufferMessageSet(buf1.toByteBuffer(4, size1 - 4)) // skip MessageSetSize
+      new ByteBufferMessageSet(buf1.nioBuffer(4, size1 - 4)) // skip MessageSetSize
     val it1 = kafkaMsgs1.iterator
 
     val msg1 = it1.next()
@@ -75,7 +75,7 @@ class MessageSetTest extends FlatSpec with Matchers {
     buf1.put(kafkaMsgs1.buffer)
     buf1.rewind()
 
-    val chBuf1 = ChannelBuffers.wrappedBuffer(buf1)
+    val chBuf1 = Unpooled.wrappedBuffer(buf1)
     val msgs1 = chBuf1.decodeMessageSet()
     assert(chBuf1.readableBytes === 0)
 
@@ -103,7 +103,7 @@ class MessageSetTest extends FlatSpec with Matchers {
     buf1.put(kafkaMsgs1.buffer.array, 0, size1)
     buf1.rewind()
 
-    val chBuf1 = ChannelBuffers.wrappedBuffer(buf1)
+    val chBuf1 = Unpooled.wrappedBuffer(buf1)
     val msgs1 = chBuf1.decodeMessageSet()
     assert(chBuf1.readableBytes === 0)
 

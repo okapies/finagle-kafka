@@ -5,7 +5,7 @@ import com.twitter.finagle._
 import com.twitter.finagle.client.{StackClient, Transporter, StdStackClient}
 import com.twitter.finagle.server.{StackServer, StdStackServer, Listener}
 import com.twitter.finagle.dispatch.{SerialClientDispatcher, GenSerialServerDispatcher}
-import com.twitter.finagle.netty3.{Netty3Transporter, Netty3Listener}
+import com.twitter.finagle.netty4.{Netty4Transporter, Netty4Listener}
 import com.twitter.finagle.pool.SingletonPool
 import com.twitter.finagle.transport.{Transport, TransportContext}
 import com.twitter.finagle.stats.StatsReceiver
@@ -40,7 +40,7 @@ with Server[Request, Response] {
       copy(stack, params)
 
     protected def newTransporter(addr: SocketAddress): Transporter[Request, Response, TransportContext] =
-      Netty3Transporter(KafkaBatchClientPipelineFactory, addr, params)
+      Netty4Transporter.raw(KafkaBatchClientPipelineFactory, addr, params)
 
     protected def newDispatcher(
       transport: Transport[Request, Response] { type Context <: Client.this.Context }
@@ -84,7 +84,7 @@ with Server[Request, Response] {
 
   case class Server(
     stack: Stack[ServiceFactory[Request, Response]] = StackServer.newStack,
-    params: Stack.Params = StackServer.defaultParams
+    params: Stack.Params = StackServer.defaultParams + param.ProtocolLibrary("kafka")
   ) extends StdStackServer[Request, Response, Server] {
     protected type In = Response
     protected type Out = Request
@@ -96,7 +96,7 @@ with Server[Request, Response] {
       copy(stack, params)
 
     protected def newListener(): Listener[In, Out, TransportContext] =
-      Netty3Listener(new KafkaServerPipelineFactory, params)
+      Netty4Listener(KafkaServerPipelineFactory, params)
 
     protected def newDispatcher(
       transport: Transport[In, Out] { type Context <: Server.this.Context },

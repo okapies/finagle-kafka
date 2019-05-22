@@ -5,7 +5,7 @@ import java.nio.charset.Charset
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-import org.jboss.netty.buffer.ChannelBuffer
+import io.netty.buffer.ByteBuf
 
 import _root_.kafka.common.KafkaException
 import _root_.kafka.message.InvalidMessageException
@@ -49,34 +49,34 @@ private[protocol] object Spec {
   import scala.language.implicitConversions
 
   /**
-   * The wrapper of ChannelBuffer that provides helper methods for Kafka protocol.
+   * The wrapper of ByteBuf that provides helper methods for Kafka protocol.
    */
-  private[protocol] implicit class KafkaChannelBuffer(val buf: ChannelBuffer) extends AnyVal {
+  private[protocol] implicit class KafkaByteBuf(val buf: ByteBuf) extends AnyVal {
 
     /*
      * Methods for encoding value and writing into buffer.
      */
 
     /**
-     * A simple wrapper for [[org.jboss.netty.buffer.ChannelBuffer#writeByte]].
+     * A simple wrapper for [[org.jboss.netty.buffer.ByteBuf#writeByte]].
      */
     @inline
     def encodeInt8(integer: Int8) = buf.writeByte(integer.asInstanceOf[Int])
 
     /**
-     * A simple wrapper for [[org.jboss.netty.buffer.ChannelBuffer#writeShort]].
+     * A simple wrapper for [[org.jboss.netty.buffer.ByteBuf#writeShort]].
      */
     @inline
     def encodeInt16(integer: Int16) = buf.writeShort(integer.asInstanceOf[Int])
 
     /**
-     * A simple wrapper for [[org.jboss.netty.buffer.ChannelBuffer#writeInt]].
+     * A simple wrapper for [[org.jboss.netty.buffer.ByteBuf#writeInt]].
      */
     @inline
     def encodeInt32(integer: Int32) = buf.writeInt(integer)
 
     /**
-     * A simple wrapper for [[org.jboss.netty.buffer.ChannelBuffer#writeLong]].
+     * A simple wrapper for [[org.jboss.netty.buffer.ByteBuf#writeLong]].
      */
     @inline
     def encodeInt64(integer: Int64) = buf.writeLong(integer)
@@ -86,7 +86,7 @@ private[protocol] object Spec {
      * transferred bytes is (4 + bytes.readableBytes).
      */
     @inline
-    def encodeBytes(bytes: ChannelBuffer) {
+    def encodeBytes(bytes: ByteBuf) {
       if (bytes != null) {
         val n: Int32 = bytes.readableBytes
         buf.encodeInt32(n)          // int32 (length field)
@@ -196,7 +196,7 @@ private[protocol] object Spec {
     def decodeInt64(): Int64 = buf.readLong()
 
     @inline
-    def decodeBytes(): ChannelBuffer = {
+    def decodeBytes(): ByteBuf = {
       val n = buf.decodeInt32() // N => int32
       buf.readBytes(n)          // content
     }
@@ -230,7 +230,7 @@ private[protocol] object Spec {
     @inline
     def decodeMessageSet(): Seq[MessageWithOffset] = {
       @tailrec
-      def decodeMessages(msgSetBuf: ChannelBuffer,
+      def decodeMessages(msgSetBuf: ByteBuf,
                          msgSet: ArrayBuffer[MessageWithOffset]): Seq[MessageWithOffset] = {
         if (msgSetBuf.readableBytes < 12) {    // 12 = length(Offset+MessageSize)
           msgSet

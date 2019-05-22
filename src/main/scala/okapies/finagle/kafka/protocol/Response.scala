@@ -1,6 +1,6 @@
 package okapies.finagle.kafka.protocol
 
-import org.jboss.netty.buffer.ChannelBuffer
+import io.netty.buffer.ByteBuf
 
 import com.twitter.concurrent.Offer
 import com.twitter.util.Future
@@ -126,7 +126,7 @@ sealed trait ResponseFrame
 case class BufferResponseFrame(
   apiKey: Short,
   correlationId: Int,
-  frame: ChannelBuffer
+  frame: ByteBuf
 ) extends ResponseFrame
 
 case class FetchResponseFrame(

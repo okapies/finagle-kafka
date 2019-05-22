@@ -13,8 +13,8 @@ scalaVersion := "2.11.12"
 crossScalaVersions := Seq("2.11.12")
 
 libraryDependencies ++= List(
-  "com.twitter" %% "finagle-core" % "19.1.0",
-  "com.twitter" %% "finagle-netty3" % "19.1.0",
+  "com.twitter" %% "finagle-core" % "19.5.1",
+  "com.twitter" %% "finagle-netty4" % "19.5.1",
   "org.apache.kafka" %% "kafka" % "0.8.2.1"
     exclude("com.101tec", "zkclient")
     exclude("com.yammer.metrics", "metrics-core")

@@ -1,27 +1,28 @@
 package okapies.finagle.kafka.protocol
 
-import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
-import org.jboss.netty.channel.{Channel, ChannelHandlerContext}
-import org.jboss.netty.handler.codec.oneone.{OneToOneEncoder, OneToOneDecoder}
+import io.netty.buffer.{ByteBuf, Unpooled}
+import io.netty.channel.{Channel, ChannelHandlerContext}
+import io.netty.handler.codec.{MessageToMessageEncoder, MessageToMessageDecoder}
 
-class BatchResponseDecoder(correlator: RequestCorrelator) extends OneToOneDecoder {
+import java.util.{List => JList}
+
+class BatchResponseDecoder(correlator: RequestCorrelator) extends MessageToMessageDecoder[ByteBuf] {
 
   import ResponseDecoder._
   import Spec._
 
-  def decode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef) = msg match {
-    case frame: ChannelBuffer =>
-      // Note: MessageSize field must be discarded by previous frame decoder.
-      val correlationId = frame.decodeInt32()
-      correlator(correlationId).flatMap { apiKey =>
-        Option(decodeResponse(apiKey, correlationId, frame))
-      }.getOrElse(msg)
-    case _ => msg // fall through
+
+  override def decode(ctx: ChannelHandlerContext, msg: ByteBuf, out: JList[AnyRef]): Unit = {
+      // Note: MessageSize field must be discarded by previous frame/msg decoder.
+      val correlationId = msg.decodeInt32()
+      for(apiKey <- correlator(correlationId)) {
+        out.add(decodeResponse(apiKey, correlationId, msg))
+      }
   }
 
 }
 
-class StreamResponseDecoder extends OneToOneDecoder {
+class StreamResponseDecoder extends MessageToMessageDecoder[ResponseFrame] {
 
   import com.twitter.concurrent.{Broker => TwitterBroker}
   import com.twitter.util.Promise
@@ -35,24 +36,24 @@ class StreamResponseDecoder extends OneToOneDecoder {
 
   private[this] var complete: Promise[Unit] = null
 
-  def decode(ctx: ChannelHandlerContext, channel: Channel, msg: AnyRef) = msg match {
+  override def decode(ctx: ChannelHandlerContext, msg: ResponseFrame, out: JList[AnyRef]): Unit = msg match {
     case BufferResponseFrame(apiKey, correlationId, frame) =>
-      decodeResponse(apiKey, correlationId, frame)
+      out.add(decodeResponse(apiKey, correlationId, frame))
 
     case FetchResponseFrame(correlationId) =>
       partitions = new TwitterBroker[PartitionStatus]
       messages = new TwitterBroker[FetchedMessage]
       complete = new Promise[Unit]
 
-      StreamFetchResponse(correlationId, partitions.recv, messages.recv, complete)
+      out.add(StreamFetchResponse(correlationId, partitions.recv, messages.recv, complete))
     case partition: PartitionStatus =>
       partitions ! partition
 
-      null
+      //null
     case msg: FetchedMessage =>
       messages ! msg
 
-      null
+      //null
     case NilMessageFrame =>
       complete.setValue(())
 
@@ -60,8 +61,8 @@ class StreamResponseDecoder extends OneToOneDecoder {
       messages = null
       complete = null
 
-      null
-    case _ => msg // fall through
+      //null
+    case _ => // fall through
   }
 
 }
@@ -70,7 +71,7 @@ object ResponseDecoder {
 
   import Spec._
 
-  def decodeResponse(apiKey: Short, correlationId: Int, frame: ChannelBuffer) = apiKey match {
+  def decodeResponse(apiKey: Short, correlationId: Int, frame: ByteBuf) = apiKey match {
     case ApiKeyProduce => decodeProduceResponse(correlationId, frame)
     case ApiKeyFetch => decodeFetchResponse(correlationId, frame)
     case ApiKeyOffset => decodeOffsetResponse(correlationId, frame)
@@ -87,7 +88,7 @@ object ResponseDecoder {
    * ProduceResponse => [TopicName [Partition ErrorCode Offset]]
    * }}}
    */
-  private[this] def decodeProduceResponse(correlationId: Int, buf: ChannelBuffer) = {
+  private[this] def decodeProduceResponse(correlationId: Int, buf: ByteBuf) = {
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -111,7 +112,7 @@ object ResponseDecoder {
    * FetchResponse => [TopicName [Partition ErrorCode HighwaterMarkOffset MessageSetSize MessageSet]]
    * }}}
    */
-  private[this] def decodeFetchResponse(correlationId: Int, buf: ChannelBuffer) = {
+  private[this] def decodeFetchResponse(correlationId: Int, buf: ByteBuf) = {
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -137,7 +138,7 @@ object ResponseDecoder {
    *   PartitionOffsets => Partition ErrorCode [Offset]
    * }}}
    */
-  private[this] def decodeOffsetResponse(correlationId: Int, buf: ChannelBuffer) = {
+  private[this] def decodeOffsetResponse(correlationId: Int, buf: ByteBuf) = {
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -164,7 +165,7 @@ object ResponseDecoder {
    *     PartitionMetadata => PartitionErrorCode PartitionId Leader Replicas Isr
    * }}}
    */
-  private[this] def decodeMetadataResponse(correlationId: Int, buf: ChannelBuffer) = {
+  private[this] def decodeMetadataResponse(correlationId: Int, buf: ByteBuf) = {
     // [Broker]
     val brokers = buf.decodeArray {
       val nodeId = buf.decodeInt32()
@@ -205,7 +206,7 @@ object ResponseDecoder {
    * OffsetCommitResponse => [TopicName [Partition ErrorCode]]]
    * }}}
    */
-  private[this] def decodeOffsetCommitResponse(correlationId: Int, buf: ChannelBuffer) = {
+  private[this] def decodeOffsetCommitResponse(correlationId: Int, buf: ByteBuf) = {
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -231,7 +232,7 @@ object ResponseDecoder {
    * OffsetFetchResponse => [TopicName [Partition Offset Metadata ErrorCode]]
    * }}}
    */
-  private[this] def decodeOffsetFetchResponse(correlationId: Int, buf: ChannelBuffer) = {
+  private[this] def decodeOffsetFetchResponse(correlationId: Int, buf: ByteBuf) = {
     val results = buf.decodeArray {
       val topicName = buf.decodeString()
 
@@ -258,7 +259,7 @@ object ResponseDecoder {
    * ConsumerMetadataResponse => ErrorCode CoordinatorId CoordinatorHost CoordinatorPort
    * }}}
    */
-  private[this] def decodeConsumerMetadataResponse(correlationId: Int, buf: ChannelBuffer) = {
+  private[this] def decodeConsumerMetadataResponse(correlationId: Int, buf: ByteBuf) = {
     val error: KafkaError = buf.decodeInt16()
     val id = buf.decodeInt32()
     val host = buf.decodeString()
@@ -269,25 +270,29 @@ object ResponseDecoder {
   }
 }
 
-class ResponseEncoder extends OneToOneEncoder {
+class ResponseEncoder extends MessageToMessageEncoder[Response] {
 
   import Spec._
 
-  override def encode(ctx: ChannelHandlerContext, channel: Channel, msg: Any): AnyRef = msg match {
-    case resp: MetadataResponse => encodeMetadataResponse(resp)
-    case resp: ProduceResponse => encodeProduceResponse(resp)
-    case resp: OffsetResponse => encodeOffsetResponse(resp)
-    case resp: FetchResponse => encodeFetchResponse(resp)
-    case resp: OffsetCommitResponse => encodeOffsetCommitResponse(resp)
-    case resp: OffsetFetchResponse => encodeOffsetFetchResponse(resp)
-    case resp: ConsumerMetadataResponse => encodeConsumerMetadataResponse(resp)
+  override def encode(ctx: ChannelHandlerContext, msg: Response, out: JList[AnyRef]): Unit = {
+    val buf = msg match {
+      case resp: MetadataResponse => encodeMetadataResponse(resp)
+      case resp: ProduceResponse => encodeProduceResponse(resp)
+      case resp: OffsetResponse => encodeOffsetResponse(resp)
+      case resp: FetchResponse => encodeFetchResponse(resp)
+      case resp: OffsetCommitResponse => encodeOffsetCommitResponse(resp)
+      case resp: OffsetFetchResponse => encodeOffsetFetchResponse(resp)
+      case resp: ConsumerMetadataResponse => encodeConsumerMetadataResponse(resp)
+    }
+
+    out.add(buf)
   }
 
-  private def encodeResponseHeader(buf: ChannelBuffer, resp: Response) {
+  private def encodeResponseHeader(buf: ByteBuf, resp: Response) {
     buf.encodeInt32(resp.correlationId) // CorrelationId => int32
   }
 
-  private def encodeBroker(buf: ChannelBuffer, broker: Broker) {
+  private def encodeBroker(buf: ByteBuf, broker: Broker) {
     buf.encodeInt32(broker.nodeId)
     buf.encodeString(broker.host)
     buf.encodeInt32(broker.port)
@@ -302,7 +307,7 @@ class ResponseEncoder extends OneToOneEncoder {
    * }}}
    */
   private def encodeMetadataResponse(resp: MetadataResponse) = {
-    val buf = ChannelBuffers.dynamicBuffer()
+    val buf = Unpooled.buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -345,7 +350,7 @@ class ResponseEncoder extends OneToOneEncoder {
    * }}}
    */
   private def encodeProduceResponse(resp: ProduceResponse) = {
-    val buf = ChannelBuffers.dynamicBuffer()
+    val buf = Unpooled.buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -368,7 +373,7 @@ class ResponseEncoder extends OneToOneEncoder {
    * }}}
    */
   private def encodeOffsetResponse(resp: OffsetResponse) = {
-    val buf = ChannelBuffers.dynamicBuffer()
+    val buf = Unpooled.buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -394,7 +399,7 @@ class ResponseEncoder extends OneToOneEncoder {
    * }}}
    */
   private def encodeFetchResponse(resp: FetchResponse) = {
-    val buf = ChannelBuffers.dynamicBuffer()
+    val buf = Unpooled.buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -423,7 +428,7 @@ class ResponseEncoder extends OneToOneEncoder {
    * }}}
    */
   private def encodeOffsetCommitResponse(resp: OffsetCommitResponse) = {
-    val buf = ChannelBuffers.dynamicBuffer()
+    val buf = Unpooled.buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -445,7 +450,7 @@ class ResponseEncoder extends OneToOneEncoder {
    * }}}
    */
   private def encodeOffsetFetchResponse(resp: OffsetFetchResponse) = {
-    val buf = ChannelBuffers.dynamicBuffer()
+    val buf = Unpooled.buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -469,7 +474,7 @@ class ResponseEncoder extends OneToOneEncoder {
    * }}}
    */
   private def encodeConsumerMetadataResponse(resp: ConsumerMetadataResponse) = {
-    val buf = ChannelBuffers.dynamicBuffer()
+    val buf = Unpooled.buffer()
 
     encodeResponseHeader(buf, resp)
 

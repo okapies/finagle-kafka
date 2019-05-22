@@ -2,7 +2,7 @@ package okapies.finagle.kafka
 
 import org.scalatest._
 import org.scalatest.matchers._
-import org.jboss.netty.buffer.{ChannelBuffer, ChannelBuffers}
+import io.netty.buffer.Unpooled
 import com.twitter.concurrent.AsyncQueue
 import com.twitter.util.{Future, Await}
 import com.twitter.finagle.{Service, ListeningServer}
@@ -50,7 +50,7 @@ with BeforeAndAfterEach {
 
   val ClientId = "test-client"
   val Topic = "test-topic"
-  val Msg = Message.create(ChannelBuffers.EMPTY_BUFFER)
+  val Msg = Message.create(Unpooled.EMPTY_BUFFER)
   val ConsumerGroup = "test-group"
 
   val broker = Broker(0, "test", 9092)

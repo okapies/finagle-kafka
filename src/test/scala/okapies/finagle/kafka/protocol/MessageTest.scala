@@ -4,7 +4,7 @@ package protocol
 import org.scalatest._
 import org.scalatest.matchers._
 
-import org.jboss.netty.buffer.ChannelBuffers
+import io.netty.buffer.Unpooled
 
 class MessageTest extends FlatSpec with Matchers {
 
@@ -18,11 +18,11 @@ class MessageTest extends FlatSpec with Matchers {
 
   it should "encode a no compressed message" in {
     val msg1 = Message.create(
-      ChannelBuffers.wrappedBuffer("value1".getBytes(utf8)),     // value
-      Some(ChannelBuffers.wrappedBuffer("key1".getBytes(utf8))), // key
+      Unpooled.wrappedBuffer("value1".getBytes(utf8)),     // value
+      Some(Unpooled.wrappedBuffer("key1".getBytes(utf8))), // key
       0                                                          // codec
     )
-    val kafkaMsg1 = new KafkaMessage(msg1.underlying.toByteBuffer)
+    val kafkaMsg1 = new KafkaMessage(msg1.underlying.nioBuffer)
 
     assert(kafkaMsg1.checksum === msg1.crc)
     assert(kafkaMsg1.magic === msg1.magicByte)
@@ -31,11 +31,11 @@ class MessageTest extends FlatSpec with Matchers {
     assert(kafkaMsg1.payload.asString === "value1")
 
     val msg2 = Message.create(
-      ChannelBuffers.wrappedBuffer("value2".getBytes(utf8)),     // value
+      Unpooled.wrappedBuffer("value2".getBytes(utf8)),     // value
       None,                                                      // key
       0                                                          // codec
     )
-    val kafkaMsg2 = new KafkaMessage(msg2.underlying.toByteBuffer)
+    val kafkaMsg2 = new KafkaMessage(msg2.underlying.nioBuffer)
 
     assert(kafkaMsg2.checksum === msg2.crc)
     assert(kafkaMsg2.magic === msg2.magicByte)
@@ -50,7 +50,7 @@ class MessageTest extends FlatSpec with Matchers {
       "key1".getBytes(utf8),   // key
       NoCompressionCodec       // codec
     )
-    val msg1 = Message(ChannelBuffers.wrappedBuffer(kafkaMsg1.buffer))
+    val msg1 = Message(Unpooled.wrappedBuffer(kafkaMsg1.buffer))
 
     assert(msg1.crc === kafkaMsg1.checksum)
     assert(msg1.magicByte === kafkaMsg1.magic)
@@ -62,7 +62,7 @@ class MessageTest extends FlatSpec with Matchers {
       "value2".getBytes(utf8), // value
       NoCompressionCodec       // codec
     )
-    val msg2 = Message(ChannelBuffers.wrappedBuffer(kafkaMsg2.buffer))
+    val msg2 = Message(Unpooled.wrappedBuffer(kafkaMsg2.buffer))
 
     assert(msg2.crc === kafkaMsg2.checksum)
     assert(msg2.magicByte === kafkaMsg2.magic)

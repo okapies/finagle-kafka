@@ -2,21 +2,11 @@ package okapies.finagle.kafka.protocol
 
 import scala.collection._
 
-import org.jboss.netty.channel.{ChannelPipelineFactory, Channels}
-import org.jboss.netty.handler.codec.frame.{LengthFieldPrepender, LengthFieldBasedFrameDecoder}
+import io.netty.channel.ChannelPipeline
+import io.netty.handler.codec.{LengthFieldPrepender, LengthFieldBasedFrameDecoder}
 
 import com.twitter.finagle._
 import com.twitter.finagle.stats.{NullStatsReceiver, StatsReceiver}
-
-object KafkaCodec {
-
-  def apply() = new KafkaCodecFactory()
-
-  def apply(stats: StatsReceiver = NullStatsReceiver) = new KafkaCodecFactory(stats)
-
-  def get() = apply()
-
-}
 
 trait RequestCorrelator extends (Int => Option[Short])
 
@@ -69,11 +59,18 @@ class CorrelationIdRequestCorrelator extends RequestCorrelator with RequestLogge
 
 }
 
-class KafkaServerPipelineFactory extends ChannelPipelineFactory {
-  def getPipeline() = {
-    val pipeline = Channels.pipeline()
+object KafkaServerPipelineFactory extends (ChannelPipeline => Unit) {
 
+  def apply(pipeline: ChannelPipeline) = {
     // decoders (upstream)
+    
+    /**
+     * Kafka request protocol
+     * {{{
+     * RequestOrResponse => Size (RequestMessage | ResponseMessage)
+     *    Size => int32
+     * }}}
+     */
     pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Int.MaxValue, 0, 4, 0, 4))
     // actual request to server
     pipeline.addLast("requestDecoder", new RequestDecoder())
@@ -81,16 +78,12 @@ class KafkaServerPipelineFactory extends ChannelPipelineFactory {
     // encoders (downstream)
     pipeline.addLast("frameEncoder", new LengthFieldPrepender(4))
     pipeline.addLast("responseEncoder", new ResponseEncoder())
-
-    pipeline
   }
 }
 
-object KafkaBatchClientPipelineFactory extends ChannelPipelineFactory {
+object KafkaBatchClientPipelineFactory extends (ChannelPipeline => Unit) {
 
-  def getPipeline() = {
-    val pipeline = Channels.pipeline()
-
+  def apply(pipeline: ChannelPipeline) = {
     val correlator = new QueueRequestCorrelator
 
     // encoders (downstream)
@@ -100,17 +93,13 @@ object KafkaBatchClientPipelineFactory extends ChannelPipelineFactory {
     // decoders (upstream)
     pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Int.MaxValue, 0, 4, 0, 4))
     pipeline.addLast("responseDecoder", new BatchResponseDecoder(correlator))
-
-    pipeline
   }
 
 }
 
-object KafkaStreamClientPipelineFactory extends ChannelPipelineFactory {
+object KafkaStreamClientPipelineFactory extends (ChannelPipeline => Unit) {
 
-  def getPipeline() = {
-    val pipeline = Channels.pipeline()
-
+  def apply(pipeline: ChannelPipeline) = {
     val correlator = new QueueRequestCorrelator
 
     // encoders (downstream)
@@ -120,51 +109,7 @@ object KafkaStreamClientPipelineFactory extends ChannelPipelineFactory {
     // decoders (upstream)
     pipeline.addLast("frameDecoder", new StreamFrameDecoder(correlator, 8192))
     pipeline.addLast("responseDecoder", new StreamResponseDecoder)
-
-    pipeline
   }
 
 }
 
-class KafkaCodecFactory(stats: StatsReceiver) extends CodecFactory[Request, Response] {
-
-  def this() = this(NullStatsReceiver)
-
-  def server: ServerCodecConfig => Codec[Request, Response] =
-    Function.const {
-      new Codec[Request, Response] {
-        def pipelineFactory = new KafkaServerPipelineFactory
-      }
-    }
-
-  def client: ClientCodecConfig => Codec[Request, Response] =
-    Function.const {
-      new Codec[Request, Response] {
-        def pipelineFactory = KafkaStreamClientPipelineFactory
-
-        override def prepareConnFactory(
-          underlying: ServiceFactory[Request, Response],
-          params: Stack.Params
-        ): ServiceFactory[Request, Response] = {
-          new KafkaTracingFilter() andThen new KafkaLoggingFilter(stats) andThen underlying
-        }
-      }
-    }
-
-}
-
-private class KafkaTracingFilter extends SimpleFilter[Request, Response] {
-
-  override def apply(request: Request, service: Service[Request, Response]) = service(request)
-
-}
-
-private class KafkaLoggingFilter(stats: StatsReceiver)
-  extends SimpleFilter[Request, Response] {
-
-  private[this] val error = stats.scope("error")
-  private[this] val succ  = stats.scope("success")
-
-  override def apply(request: Request, service: Service[Request, Response]) = service(request)
-
-}
