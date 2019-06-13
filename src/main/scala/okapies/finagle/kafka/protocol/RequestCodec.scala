@@ -1,10 +1,10 @@
 package okapies.finagle.kafka.protocol
 
-import io.netty.buffer.{ByteBuf, Unpooled}
-import io.netty.channel.{Channel, ChannelHandlerContext, ChannelOutboundHandlerAdapter, ChannelPromise, ChannelFutureListener, ChannelFuture}
-import io.netty.handler.codec.{MessageToMessageDecoder, MessageToMessageEncoder}
-
 import java.util.{List => JList}
+
+import io.netty.buffer.ByteBuf
+import io.netty.channel._
+import io.netty.handler.codec.MessageToMessageDecoder
 
 class RequestDecoder extends MessageToMessageDecoder[ByteBuf] {
 
@@ -211,13 +211,13 @@ class RequestEncoder(logger: RequestLogger) extends ChannelOutboundHandlerAdapte
     msg match {
       case req: Request =>
         val buf = msg match {
-          case req: ProduceRequest => encodeProduceRequest(req)
-          case req: FetchRequest => encodeFetchRequest(req)
-          case req: OffsetRequest => encodeOffsetRequest(req)
-          case req: MetadataRequest => encodeMetadataRequest(req)
-          case req: OffsetCommitRequest => encodeOffsetCommitRequest(req)
-          case req: OffsetFetchRequest => encodeOffsetFetchRequest(req)
-          case req: ConsumerMetadataRequest => encodeConsumerMetadataRequest(req)
+          case req: ProduceRequest => encodeProduceRequest(ctx, req)
+          case req: FetchRequest => encodeFetchRequest(ctx, req)
+          case req: OffsetRequest => encodeOffsetRequest(ctx, req)
+          case req: MetadataRequest => encodeMetadataRequest(ctx, req)
+          case req: OffsetCommitRequest => encodeOffsetCommitRequest(ctx, req)
+          case req: OffsetFetchRequest => encodeOffsetFetchRequest(ctx, req)
+          case req: ConsumerMetadataRequest => encodeConsumerMetadataRequest(ctx, req)
         }
 
        logger.add(req)
@@ -253,8 +253,8 @@ class RequestEncoder(logger: RequestLogger) extends ChannelOutboundHandlerAdapte
    *   MessageSet => [Offset MessageSize Message]
    * }}}
    */
-  private def encodeProduceRequest(req: ProduceRequest): ByteBuf = {
-    val buf = Unpooled.buffer() // TODO: estimatedLength
+  private def encodeProduceRequest(ctx: ChannelHandlerContext, req: ProduceRequest): ByteBuf = {
+    val buf = ctx.alloc().buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyProduce, req)
 
     // TODO: return empty response immediately if requiredAcks == 0
@@ -281,8 +281,8 @@ class RequestEncoder(logger: RequestLogger) extends ChannelOutboundHandlerAdapte
    * FetchRequest => ReplicaId MaxWaitTime MinBytes [TopicName [Partition FetchOffset MaxBytes]]
    * }}}
    */
-  private def encodeFetchRequest(req: FetchRequest): ByteBuf = {
-    val buf = Unpooled.buffer() // TODO: estimatedLength
+  private def encodeFetchRequest(ctx: ChannelHandlerContext, req: FetchRequest): ByteBuf = {
+    val buf = ctx.alloc().buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyFetch, req)
 
     buf.encodeInt32(req.replicaId)
@@ -307,8 +307,8 @@ class RequestEncoder(logger: RequestLogger) extends ChannelOutboundHandlerAdapte
    * OffsetRequest => ReplicaId [TopicName [Partition Time MaxNumberOfOffsets]]
    * }}}
    */
-  private def encodeOffsetRequest(req: OffsetRequest): ByteBuf = {
-    val buf = Unpooled.buffer() // TODO: estimatedLength
+  private def encodeOffsetRequest(ctx: ChannelHandlerContext, req: OffsetRequest): ByteBuf = {
+    val buf = ctx.alloc().buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyOffset, req)
 
     buf.encodeInt32(req.replicaId)
@@ -329,8 +329,8 @@ class RequestEncoder(logger: RequestLogger) extends ChannelOutboundHandlerAdapte
    * MetadataRequest => [TopicName]
    * }}}
    */
-  private def encodeMetadataRequest(req: MetadataRequest): ByteBuf = {
-    val buf = Unpooled.buffer() // TODO: estimatedLength
+  private def encodeMetadataRequest(ctx: ChannelHandlerContext, req: MetadataRequest): ByteBuf = {
+    val buf = ctx.alloc().buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyMetadata, req)
 
     buf.encodeStringArray(req.topics) // [TopicName]
@@ -346,8 +346,8 @@ class RequestEncoder(logger: RequestLogger) extends ChannelOutboundHandlerAdapte
    * OffsetCommitRequest => ConsumerGroup [TopicName [Partition Offset Metadata]]
    * }}}
    */
-  private def encodeOffsetCommitRequest(req: OffsetCommitRequest): ByteBuf = {
-    val buf = Unpooled.buffer() // TODO: estimatedLength
+  private def encodeOffsetCommitRequest(ctx: ChannelHandlerContext, req: OffsetCommitRequest): ByteBuf = {
+    val buf = ctx.alloc().buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyOffsetCommit, req)
 
     buf.encodeString(req.consumerGroup)
@@ -372,8 +372,8 @@ class RequestEncoder(logger: RequestLogger) extends ChannelOutboundHandlerAdapte
    * OffsetFetchRequest => ConsumerGroup [TopicName [Partition]]
    * }}}
    */
-  private def encodeOffsetFetchRequest(req: OffsetFetchRequest): ByteBuf = {
-    val buf = Unpooled.buffer() // TODO: estimatedLength
+  private def encodeOffsetFetchRequest(ctx: ChannelHandlerContext, req: OffsetFetchRequest): ByteBuf = {
+    val buf = ctx.alloc().buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyOffsetFetch, req)
 
     buf.encodeString(req.consumerGroup)
@@ -395,8 +395,8 @@ class RequestEncoder(logger: RequestLogger) extends ChannelOutboundHandlerAdapte
    * ConsumerMetadataRequest => ConsumerGroup
    * }}}
    */
-  private def encodeConsumerMetadataRequest(req: ConsumerMetadataRequest): ByteBuf = {
-    val buf = Unpooled.buffer() // TODO: estimatedLength
+  private def encodeConsumerMetadataRequest(ctx: ChannelHandlerContext, req: ConsumerMetadataRequest): ByteBuf = {
+    val buf = ctx.alloc().buffer() // TODO: estimatedLength
     encodeRequestHeader(buf, ApiKeyConsumerMetadata, req)
 
     buf.encodeString(req.consumerGroup)

@@ -1,10 +1,10 @@
 package okapies.finagle.kafka.protocol
 
-import io.netty.buffer.{ByteBuf, Unpooled}
-import io.netty.channel.{Channel, ChannelHandlerContext}
-import io.netty.handler.codec.{MessageToMessageEncoder, MessageToMessageDecoder}
-
 import java.util.{List => JList}
+
+import io.netty.buffer.ByteBuf
+import io.netty.channel.ChannelHandlerContext
+import io.netty.handler.codec.{MessageToMessageDecoder, MessageToMessageEncoder}
 
 class BatchResponseDecoder(correlator: RequestCorrelator) extends MessageToMessageDecoder[ByteBuf] {
 
@@ -24,11 +24,9 @@ class BatchResponseDecoder(correlator: RequestCorrelator) extends MessageToMessa
 
 class StreamResponseDecoder extends MessageToMessageDecoder[ResponseFrame] {
 
+  import ResponseDecoder._
   import com.twitter.concurrent.{Broker => TwitterBroker}
   import com.twitter.util.Promise
-
-  import ResponseDecoder._
-  import Spec._
 
   private[this] var partitions: TwitterBroker[PartitionStatus] = null
 
@@ -276,13 +274,13 @@ class ResponseEncoder extends MessageToMessageEncoder[Response] {
 
   override def encode(ctx: ChannelHandlerContext, msg: Response, out: JList[AnyRef]): Unit = {
     val buf = msg match {
-      case resp: MetadataResponse => encodeMetadataResponse(resp)
-      case resp: ProduceResponse => encodeProduceResponse(resp)
-      case resp: OffsetResponse => encodeOffsetResponse(resp)
-      case resp: FetchResponse => encodeFetchResponse(resp)
-      case resp: OffsetCommitResponse => encodeOffsetCommitResponse(resp)
-      case resp: OffsetFetchResponse => encodeOffsetFetchResponse(resp)
-      case resp: ConsumerMetadataResponse => encodeConsumerMetadataResponse(resp)
+      case resp: MetadataResponse => encodeMetadataResponse(ctx, resp)
+      case resp: ProduceResponse => encodeProduceResponse(ctx, resp)
+      case resp: OffsetResponse => encodeOffsetResponse(ctx, resp)
+      case resp: FetchResponse => encodeFetchResponse(ctx, resp)
+      case resp: OffsetCommitResponse => encodeOffsetCommitResponse(ctx, resp)
+      case resp: OffsetFetchResponse => encodeOffsetFetchResponse(ctx, resp)
+      case resp: ConsumerMetadataResponse => encodeConsumerMetadataResponse(ctx, resp)
     }
 
     out.add(buf)
@@ -306,8 +304,8 @@ class ResponseEncoder extends MessageToMessageEncoder[Response] {
    *     PartitionMetadata => PartitionErrorCode PartitionId Leader [Replicas] [Isr]
    * }}}
    */
-  private def encodeMetadataResponse(resp: MetadataResponse) = {
-    val buf = Unpooled.buffer()
+  private def encodeMetadataResponse(ctx: ChannelHandlerContext, resp: MetadataResponse) = {
+    val buf = ctx.alloc().buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -349,8 +347,8 @@ class ResponseEncoder extends MessageToMessageEncoder[Response] {
    * ProduceResponse => [TopicName [Partition ErrorCode Offset]]
    * }}}
    */
-  private def encodeProduceResponse(resp: ProduceResponse) = {
-    val buf = Unpooled.buffer()
+  private def encodeProduceResponse(ctx: ChannelHandlerContext, resp: ProduceResponse) = {
+    val buf = ctx.alloc().buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -372,8 +370,8 @@ class ResponseEncoder extends MessageToMessageEncoder[Response] {
    * OffsetResponse => [TopicName [PartitionOffsets]]
    * }}}
    */
-  private def encodeOffsetResponse(resp: OffsetResponse) = {
-    val buf = Unpooled.buffer()
+  private def encodeOffsetResponse(ctx: ChannelHandlerContext, resp: OffsetResponse) = {
+    val buf = ctx.alloc().buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -398,8 +396,8 @@ class ResponseEncoder extends MessageToMessageEncoder[Response] {
    * FetchResponse => [TopicName [Partition ErrorCode HighwaterMarkOffset MessageSetSize MessageSet]]
    * }}}
    */
-  private def encodeFetchResponse(resp: FetchResponse) = {
-    val buf = Unpooled.buffer()
+  private def encodeFetchResponse(ctx: ChannelHandlerContext, resp: FetchResponse) = {
+    val buf = ctx.alloc().buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -427,8 +425,8 @@ class ResponseEncoder extends MessageToMessageEncoder[Response] {
    * OffsetCommitResponse => [TopicName [Partition ErrorCode]]]
    * }}}
    */
-  private def encodeOffsetCommitResponse(resp: OffsetCommitResponse) = {
-    val buf = Unpooled.buffer()
+  private def encodeOffsetCommitResponse(ctx: ChannelHandlerContext, resp: OffsetCommitResponse) = {
+    val buf = ctx.alloc().buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -449,8 +447,8 @@ class ResponseEncoder extends MessageToMessageEncoder[Response] {
    * OffsetFetchResponse => [TopicName [Partition Offset Metadata ErrorCode]]
    * }}}
    */
-  private def encodeOffsetFetchResponse(resp: OffsetFetchResponse) = {
-    val buf = Unpooled.buffer()
+  private def encodeOffsetFetchResponse(ctx: ChannelHandlerContext, resp: OffsetFetchResponse) = {
+    val buf = ctx.alloc().buffer()
 
     encodeResponseHeader(buf, resp)
 
@@ -473,8 +471,8 @@ class ResponseEncoder extends MessageToMessageEncoder[Response] {
    * ConsumerMetadataResponse => ErrorCode CoordinatorId CoordinatorHost CoordinatorPort
    * }}}
    */
-  private def encodeConsumerMetadataResponse(resp: ConsumerMetadataResponse) = {
-    val buf = Unpooled.buffer()
+  private def encodeConsumerMetadataResponse(ctx: ChannelHandlerContext, resp: ConsumerMetadataResponse) = {
+    val buf = ctx.alloc().buffer()
 
     encodeResponseHeader(buf, resp)
 

@@ -90,7 +90,9 @@ private[protocol] object Spec {
       if (bytes != null) {
         val n: Int32 = bytes.readableBytes
         buf.encodeInt32(n)          // int32 (length field)
-        buf.writeBytes(bytes, 0, n) // content
+        try {
+          buf.writeBytes(bytes, 0, n) // content
+        } finally bytes.release()
       } else {
         buf.encodeInt32(-1:Int32) // indicates null
       }
@@ -206,16 +208,19 @@ private[protocol] object Spec {
       val n = buf.decodeInt16()    // N => int16
       val bytes = buf.readBytes(n) // content
 
-      val (array, offset) =
-        if (bytes.hasArray) {
-          (bytes.array, bytes.arrayOffset)
-        } else {
-          val _array = new Array[Byte](n)
-          bytes.readBytes(_array)
-          (_array, 0)
-        }
+      try {
+        val (array, offset) =
+          if (bytes.hasArray) {
+            (bytes.array, bytes.arrayOffset)
+          } else {
+            val _array = new Array[Byte](n)
+            bytes.readBytes(_array)
+            (_array, 0)
+          }
 
-      new String(array, offset, n, DefaultCharset)
+
+        new String(array, offset, n, DefaultCharset)
+      } finally bytes.release()
     }
 
     @inline
@@ -256,7 +261,9 @@ private[protocol] object Spec {
       val size = buf.decodeInt32()        // MessageSetSize => int32
       val msgSetBuf = buf.readBytes(size) // MessageSet
 
-      decodeMessages(msgSetBuf, ArrayBuffer[MessageWithOffset]())
+      try {
+        decodeMessages(msgSetBuf, ArrayBuffer[MessageWithOffset]())
+      } finally msgSetBuf.release()
     }
 
   }

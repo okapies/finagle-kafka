@@ -61,6 +61,7 @@ class Message(private[this] val _underlying: ByteBuf) {
 
   override def hashCode: Int = _underlying.hashCode
 
+  override def finalize(): Unit = _underlying.release()
 }
 
 object Message {
